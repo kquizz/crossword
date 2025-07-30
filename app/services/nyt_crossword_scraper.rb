@@ -28,7 +28,23 @@ class NytCrosswordScraper
     }
   end
 
-  def save_clues_to_database!
+  def save_clues_to_database!(force: false)
+    # Check if we've already scraped this date
+    category = "NYT #{@date}"
+    existing_count = Clue.where(category: category).count
+
+    if existing_count > 0 && !force
+      puts "⚠️  Clues for #{@date} already exist (#{existing_count} clues found)"
+      puts "Skipping to avoid duplicates. Use force: true to re-scrape."
+      return 0
+    end
+
+    # If forcing a re-scrape, delete existing clues for this date
+    if force && existing_count > 0
+      puts "🗑️  Force mode: Deleting #{existing_count} existing clues for #{@date}"
+      Clue.where(category: category).delete_all
+    end
+
     clue_data = scrape_clues
     saved_count = 0
 
@@ -40,7 +56,7 @@ class NytCrosswordScraper
           answer: clue_info[:answer]
         ) do |c|
           c.difficulty = determine_difficulty(clue_info[:answer])
-          c.category = "NYT #{@date}"
+          c.category = category
         end
         saved_count += 1 if clue.persisted?
       end
@@ -52,7 +68,7 @@ class NytCrosswordScraper
           answer: clue_info[:answer]
         ) do |c|
           c.difficulty = determine_difficulty(clue_info[:answer])
-          c.category = "NYT #{@date}"
+          c.category = category
         end
         saved_count += 1 if clue.persisted?
       end

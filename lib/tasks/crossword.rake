@@ -8,6 +8,21 @@ namespace :crossword do
     scraper = NytCrosswordScraper.new(date)
     count = scraper.save_clues_to_database!
 
+    if count > 0
+      puts "✅ Successfully scraped and saved #{count} clues!"
+    end
+    puts "Total clues in database: #{Clue.count}"
+  end
+
+  desc "Force re-scrape NYT crossword clues (overwrites existing)"
+  task :force_scrape_nyt_clues, [ :date ] => :environment do |t, args|
+    date = args[:date] || Date.current.strftime("%m-%d-%y")
+
+    puts "Force scraping NYT crossword for date: #{date}"
+
+    scraper = NytCrosswordScraper.new(date)
+    count = scraper.save_clues_to_database!(force: true)
+
     puts "✅ Successfully scraped and saved #{count} clues!"
     puts "Total clues in database: #{Clue.count}"
   end

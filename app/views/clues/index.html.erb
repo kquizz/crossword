@@ -4,13 +4,51 @@
 
 <h1>Clues</h1>
 
-<div id="clues">
-  <% @clues.each do |clue| %>
-    <%= render clue %>
-    <p>
-      <%= link_to "Show this clue", clue %>
-    </p>
-  <% end %>
+<div class="mb-3">
+  <%= link_to "New clue", new_clue_path, class: "btn btn-primary" %>
 </div>
 
-<%= link_to "New clue", new_clue_path %>
+<div class="table-responsive">
+  <table class="table table-striped table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th>Clue Text</th>
+        <th>Answer</th>
+        <th>Difficulty</th>
+        <th>Category</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @clues.each do |clue| %>
+        <tr>
+          <td class="clue-text"><%= clue.clue_text %></td>
+          <td class="answer"><strong><%= clue.answer %></strong></td>
+          <td>
+            <span class="badge <%= difficulty_badge_class(clue.difficulty) %>">
+              <%= clue.difficulty&.capitalize %>
+            </span>
+          </td>
+          <td class="category"><%= clue.category %></td>
+          <td>
+            <div class="btn-group" role="group">
+              <%= link_to "Show", clue, class: "btn btn-sm btn-outline-primary" %>
+              <%= link_to "Edit", edit_clue_path(clue), class: "btn btn-sm btn-outline-secondary" %>
+            </div>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<% if @clues.empty? %>
+  <div class="alert alert-info" role="alert">
+    <h4 class="alert-heading">No clues found!</h4>
+    <p>Start by <%= link_to "creating a new clue", new_clue_path %> or scraping some NYT crossword clues.</p>
+    <hr>
+    <p class="mb-0">
+      To scrape clues, run: <code>rake crossword:scrape_nyt_clues</code>
+    </p>
+  </div>
+<% end %>
