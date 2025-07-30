@@ -1,0 +1,152 @@
+# Use this file to configure the Overcommit hooks you wish to use in your
+# repository. Uncomment the hooks you want to enable.
+#
+# For more information, see: https://github.com/sds/overcommit
+#
+# At the very least, you should uncomment the `bundle_check` hook if you're
+# using Bundler and `rails_best_practices` if you're using Rails.
+
+# Loads Bundler context from a Gemfile. If false, does nothing (default).
+#
+# Specifying a Gemfile for Bundler to load allows you to control which gems
+# are available in the load path (i.e. loadable via `require`) within your
+# hook runs. Note that having a Gemfile requires you to include `overcommit`
+# itself in your Gemfile (otherwise Overcommit can't load itself!).
+#
+# This is useful if you want to:
+#
+#   - Enforce a specific version of Overcommit to use for all hook runs
+#     (or to use a version from the master branch that has not been released yet)
+#   - Enforce a specific version or unreleased branch is used for a gem you want
+#     to use in your git hooks (e.g. a custom cop you've written for RuboCop)
+gemfile: Gemfile
+
+# Where to store hook plugins specific to this repository. These are loaded in
+# addition to the default hooks Overcommit comes with. The location is relative
+# to the root of the repository.
+plugin_directory: '.git-hooks'
+
+# Whether to hide hook output by default. This results in completely silent hook
+# runs except in the case of warning or failure.
+quiet: false
+
+# Number of hooks that can be run concurrently. Typically this won't need to be
+# changed, but if you know that some of your hooks themselves use multiple
+# processors you can lower this value accordingly. You can define
+# `concurrency: 1` to disable concurrent hook runs entirely.
+concurrency: '%{processors}'
+
+# Whether to check if a hook plugin has changed since Overcommit last ran it.
+# This is a defense mechanism when working with repositories which can contain
+# untrusted code (e.g. when you're submitting a pull request to a third party
+# project), as it prevents an attacker from modifying hooks without your
+# knowledge. Set this to `false` if you want to disable this check.
+verify_signatures: true
+
+PreCommit:
+  AuthorEmail:
+    enabled: true
+    description: 'Check author email'
+    required: true
+
+  AuthorName:
+    enabled: true
+    description: 'Check for author name'
+    required: true
+
+  BundleCheck:
+    enabled: true
+    description: 'Check Gemfile dependencies'
+    required_executable: 'bundle'
+
+  RuboCop:
+    enabled: true
+    description: 'Analyze with RuboCop'
+    required_executable: 'rubocop'
+    command: ['bundle', 'exec', 'rubocop']
+    on_warn: fail # Treat all warnings as failures
+    problem_on_unmodified_line: ignore
+
+  Brakeman:
+    enabled: true
+    description: 'Check for security vulnerabilities'
+    required_executable: 'brakeman'
+    command: ['bundle', 'exec', 'brakeman', '--quiet', '--format', 'json']
+
+  TrailingWhitespace:
+    enabled: true
+    description: 'Check for trailing whitespace'
+    exclude:
+      - '**/db/structure.sql' # Ignore trailing whitespace in structure.sql
+      - '**/vendor/**/*'
+
+  YamlSyntax:
+    enabled: true
+    description: 'Check YAML syntax'
+
+  # Uncomment if you have tests you want to run on commit
+  # RailsSchemaUpToDate:
+  #   enabled: true
+  #   description: 'Check if database schema is up to date'
+
+PrePush:
+  RSpec:
+    enabled: false # Enable if you want to run tests before pushing
+    description: 'Run RSpec test suite'
+    required_executable: 'rspec'
+    command: ['bundle', 'exec', 'rspec']
+
+  # ProtectedBranches:
+  #   enabled: true
+  #   description: 'Check for illegal pushes to protected branches'
+  #   destructive_only: true
+
+CommitMsg:
+  CapitalizedSubject:
+    enabled: true
+    description: 'Check subject capitalization'
+
+  EmptyMessage:
+    enabled: true
+    description: 'Check for empty commit message'
+
+  SingleLineSubject:
+    enabled: true
+    description: 'Check subject line'
+
+  SpellCheck:
+    enabled: false
+    description: 'Check spelling'
+
+  TextWidth:
+    enabled: true
+    description: 'Check text width'
+    max_subject_width: 60
+    max_body_width: 72
+
+PostCheckout:
+  ALL:
+    quiet: true
+
+  BundleCheck:
+    enabled: true
+    description: 'Check Gemfile dependencies'
+    required_executable: 'bundle'
+
+PostMerge:
+  ALL:
+    quiet: true
+
+  BundleCheck:
+    enabled: true
+    description: 'Check Gemfile dependencies'
+    required_executable: 'bundle'
+
+PostRewrite:
+  ALL:
+    quiet: true
+
+  BundleCheck:
+    enabled: true
+    description: 'Check Gemfile dependencies'
+    required_executable: 'bundle'
