@@ -20,6 +20,7 @@
       <!-- Crossword Grid -->
       <div class="crossword-container">
         <div class="crossword-grid" style="grid-template-columns: repeat(<%= @puzzle.width %>, 1fr); grid-template-rows: repeat(<%= @puzzle.height %>, 1fr);">
+          <% numbering = @puzzle.calculate_numbering %>
           <% @puzzle.height.times do |row| %>
             <% @puzzle.width.times do |col| %>
               <% cell_value = @puzzle.solution_grid.dig(row, col) || "" %>
@@ -27,6 +28,9 @@
               <div class="crossword-cell <%= 'blocked' if is_blocked %>"
                    data-row="<%= row %>"
                    data-col="<%= col %>">
+                <% if numbering[[row, col]] %>
+                  <span class="cell-number"><%= numbering[[row, col]] %></span>
+                <% end %>
                 <% unless is_blocked %>
                   <span class="cell-letter"><%= cell_value %></span>
                 <% end %>

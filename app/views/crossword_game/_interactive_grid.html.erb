@@ -65,12 +65,13 @@
     </div>
   </div>
 
-  <div class="crossword-interactive-grid" 
-       data-mode="<%= @mode %>" 
+  <div class="crossword-interactive-grid"
+       data-mode="<%= @mode %>"
        data-puzzle-id="<%= @puzzle&.id %>"
        data-grid="<%= @grid.is_a?(Array) ? @grid.to_json : '[]' %>"
        style="grid-template-columns: repeat(<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>, 1fr);">
     <% if @grid.is_a?(Array) %>
+      <% numbering = calculate_grid_numbering(@grid) %>
       <% @grid.each_with_index do |row, row_index| %>
         <% row.each_with_index do |cell, col_index| %>
           <div class="crossword-cell interactive <%= 'blocked' if cell == '#' %>"
@@ -78,6 +79,9 @@
                data-col="<%= col_index %>"
                tabindex="0"
                <%= 'style="background-color: #000 !important; color: transparent !important;"'.html_safe if cell == '#' %>>
+            <% if numbering[[row_index, col_index]] %>
+              <span class="cell-number"><%= numbering[[row_index, col_index]] %></span>
+            <% end %>
             <% if cell && cell != '#' %>
               <span class="cell-letter"><%= cell %></span>
             <% elsif cell == '#' %>
@@ -255,13 +259,11 @@
   gap: 1px;
   background-color: #000;
   border: 2px solid #000;
-  max-width: 95vw;
-  max-height: 85vh;
   margin: 0 auto 2rem auto;
   overflow: auto;
-  /* Dynamic sizing based on grid dimensions */
-  width: clamp(300px, 90vw, 900px);
-  height: clamp(300px, 85vh, 900px);
+  /* Dynamic sizing - let JavaScript handle the sizing */
+  max-width: 95vw;
+  max-height: 85vh;
 }
 
 .crossword-cell.interactive {
@@ -280,6 +282,22 @@
   cursor: pointer;
   transition: all 0.2s;
   border: 2px solid transparent;
+}
+
+.crossword-cell.interactive .cell-number {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: clamp(0.5rem, 1.2vw, 0.9rem);
+  font-weight: bold;
+  color: #333;
+  line-height: 1;
+  z-index: 10;
+}
+
+.crossword-cell.interactive .cell-letter {
+  position: relative;
+  z-index: 5;
 }
 
 .crossword-cell.interactive.blocked {

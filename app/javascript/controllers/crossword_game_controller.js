@@ -420,6 +420,9 @@ export default class extends Controller {
     this.gridData[row][col] = newValue
     this.updateCellDisplay(row, col)
     this.updateGridData()
+    
+    // Recalculate numbering since blocking/unblocking affects word starts
+    this.updateNumbering()
   }
 
   updateCellDisplay(row, col) {
@@ -433,7 +436,17 @@ export default class extends Controller {
       cell.innerHTML = ''
     } else {
       cell.classList.remove('blocked')
-      cell.innerHTML = value ? `<span class="cell-letter">${value}</span>` : ''
+      
+      // Preserve existing cell number if it exists
+      const existingNumber = cell.querySelector('.cell-number')
+      const numberHtml = existingNumber ? existingNumber.outerHTML : ''
+      
+      // Set the content with number preserved
+      if (value) {
+        cell.innerHTML = numberHtml + `<span class="cell-letter">${value}</span>`
+      } else {
+        cell.innerHTML = numberHtml
+      }
     }
   }
 
@@ -443,6 +456,94 @@ export default class extends Controller {
         this.updateCellDisplay(row, col)
       }
     }
+    // Update numbering after updating cell displays
+    this.updateNumbering()
+  }
+
+  updateNumbering() {
+    // Calculate new numbering based on current grid state
+    const numbering = this.calculateGridNumbering(this.gridData)
+    
+    console.log('Grid data:', this.gridData)
+    console.log('Calculated numbering:', numbering)
+    
+    // Clear all existing numbers
+    this.element.querySelectorAll('.cell-number').forEach(el => el.remove())
+    
+    // Add new numbers
+    Object.entries(numbering).forEach(([key, number]) => {
+      const [row, col] = key.split(',').map(Number)
+      const cell = this.getCellElement(row, col)
+      if (cell && !cell.classList.contains('blocked')) {
+        const numberSpan = document.createElement('span')
+        numberSpan.className = 'cell-number'
+        numberSpan.textContent = number
+        cell.insertBefore(numberSpan, cell.firstChild)
+        console.log(`Added number ${number} to cell (${row}, ${col})`)
+      }
+    })
+  }
+
+  calculateGridNumbering(grid) {
+    if (!grid || grid.length === 0) return {}
+    
+    const numbering = {}
+    let currentNumber = 1
+    const height = grid.length
+    const width = grid[0]?.length || 0
+    
+    for (let row = 0; row < height; row++) {
+      for (let col = 0; col < width; col++) {
+        const cell = grid[row][col]
+        // Only skip blocked cells (#), not empty cells (null/undefined)
+        if (cell === '#') continue
+        
+        let shouldNumber = false
+        
+        // Check if this is the start of an across word
+        if (this.startsAcrossWord(grid, row, col, width)) {
+          shouldNumber = true
+        }
+        
+        // Check if this is the start of a down word
+        if (this.startsDownWord(grid, row, col, height)) {
+          shouldNumber = true
+        }
+        
+        if (shouldNumber) {
+          numbering[[row, col]] = currentNumber
+          currentNumber++
+        }
+      }
+    }
+    
+    return numbering
+  }
+
+  startsAcrossWord(grid, row, col, width) {
+    // Must not be a blocked cell (# is blocked, null/undefined are empty but available)
+    if (grid[row][col] === '#') return false
+    
+    // Must be at left edge OR previous cell is blocked
+    const leftIsBlocked = col === 0 || grid[row][col - 1] === '#'
+    
+    // Must have at least one more cell to the right that's not blocked
+    const rightExists = col < width - 1 && grid[row][col + 1] !== '#'
+    
+    return leftIsBlocked && rightExists
+  }
+
+  startsDownWord(grid, row, col, height) {
+    // Must not be a blocked cell (# is blocked, null/undefined are empty but available)
+    if (grid[row][col] === '#') return false
+    
+    // Must be at top edge OR previous cell is blocked
+    const topIsBlocked = row === 0 || grid[row - 1][col] === '#'
+    
+    // Must have at least one more cell below that's not blocked
+    const bottomExists = row < height - 1 && grid[row + 1][col] !== '#'
+    
+    return topIsBlocked && bottomExists
   }
 
   updateGridData() {
@@ -520,7 +621,7 @@ export default class extends Controller {
     const cells = this.element.querySelectorAll('.crossword-cell.interactive')
     const gridContainer = this.element.querySelector('.crossword-interactive-grid')
 
-    if (cells.length > 0) {
+    if (cells.length > 0 && gridContainer) {
       // Calculate base size based on grid dimensions
       const baseSize = this.calculateBaseCellSize()
       const zoomedSize = Math.max(15, baseSize * this.zoomLevel)
@@ -532,6 +633,13 @@ export default class extends Controller {
         cell.style.fontSize = fontSize
       })
 
+      // Set the grid container size to fit all cells
+      const totalWidth = this.gridWidth * zoomedSize + (this.gridWidth + 1) * 1  // +1px for borders/gaps
+      const totalHeight = this.gridHeight * zoomedSize + (this.gridHeight + 1) * 1
+      
+      gridContainer.style.width = totalWidth + 'px'
+      gridContainer.style.height = totalHeight + 'px'
+
       // Don't override the gap - let CSS handle borders
       // gridContainer.style.gap = gap + 'px'
     }
@@ -540,21 +648,16 @@ export default class extends Controller {
   calculateBaseCellSize() {
     // Calculate appropriate cell size based on grid dimensions and viewport
     const gridSize = Math.max(this.gridWidth, this.gridHeight)
-    const viewportMin = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.7)
-
-    if (gridSize <= 5) {
-      // Small grids should have larger cells
-      return Math.min(80, viewportMin / gridSize)
-    } else if (gridSize <= 15) {
-      // Medium grids
-      return Math.min(50, viewportMin / gridSize)
-    } else if (gridSize <= 25) {
-      // Large grids
-      return Math.min(25, viewportMin / gridSize)
-    } else {
-      // Very large grids (30x30+) should have very small cells
-      return Math.min(15, viewportMin / gridSize)
-    }
+    const viewportWidth = window.innerWidth * 0.85  // Leave some margin
+    const viewportHeight = window.innerHeight * 0.6  // Account for header/controls
+    
+    // Calculate maximum cell size that fits the grid in viewport
+    const maxCellWidth = Math.floor(viewportWidth / this.gridWidth)
+    const maxCellHeight = Math.floor(viewportHeight / this.gridHeight)
+    const maxCellSize = Math.min(maxCellWidth, maxCellHeight)
+    
+    // Set reasonable bounds
+    return Math.max(15, Math.min(maxCellSize, 80))
   }
 
   saveCell(row, col, value) {

@@ -234,6 +234,22 @@
   font-family: 'Courier New', monospace;
 }
 
+.crossword-cell .cell-number {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: #333;
+  line-height: 1;
+  z-index: 10;
+}
+
+.crossword-cell .cell-letter {
+  position: relative;
+  z-index: 5;
+}
+
 .crossword-cell.blocked {
   background-color: #000;
   color: #000;

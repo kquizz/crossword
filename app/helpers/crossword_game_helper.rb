@@ -13,4 +13,66 @@ module CrosswordGameHelper
       "secondary"
     end
   end
+
+  def calculate_grid_numbering(grid)
+    return {} if grid.nil? || grid.empty?
+
+    numbering = {}
+    current_number = 1
+    height = grid.length
+    width = grid.first&.length || 0
+
+    grid.each_with_index do |row, row_index|
+      row.each_with_index do |cell, col_index|
+        next if cell == "#" || cell.nil?
+
+        should_number = false
+
+        # Check if this is the start of an across word
+        if starts_across_word?(grid, row_index, col_index, width)
+          should_number = true
+        end
+
+        # Check if this is the start of a down word
+        if starts_down_word?(grid, row_index, col_index, height)
+          should_number = true
+        end
+
+        if should_number
+          numbering[[ row_index, col_index ]] = current_number
+          current_number += 1
+        end
+      end
+    end
+
+    numbering
+  end
+
+  private
+
+    def starts_across_word?(grid, row, col, width)
+      # Must not be a blocked cell
+      return false if grid[row][col] == "#" || grid[row][col].nil?
+
+      # Must be at left edge OR previous cell is blocked
+      left_is_blocked = col == 0 || grid[row][col - 1] == "#" || grid[row][col - 1].nil?
+
+      # Must have at least one more cell to the right that's not blocked
+      right_exists = col < width - 1 && grid[row][col + 1] != "#" && !grid[row][col + 1].nil?
+
+      left_is_blocked && right_exists
+    end
+
+    def starts_down_word?(grid, row, col, height)
+      # Must not be a blocked cell
+      return false if grid[row][col] == "#" || grid[row][col].nil?
+
+      # Must be at top edge OR previous cell is blocked
+      top_is_blocked = row == 0 || grid[row - 1][col] == "#" || grid[row - 1][col].nil?
+
+      # Must have at least one more cell below that's not blocked
+      bottom_exists = row < height - 1 && grid[row + 1][col] != "#" && !grid[row + 1][col].nil?
+
+      top_is_blocked && bottom_exists
+    end
 end
