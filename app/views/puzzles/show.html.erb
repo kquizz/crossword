@@ -1,0 +1,61 @@
+<p style="color: green"><%= notice %></p>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-8">
+      <h1><%= @puzzle.title %></h1>
+
+      <% if @puzzle.description.present? %>
+        <p class="lead"><%= @puzzle.description %></p>
+      <% end %>
+
+      <div class="puzzle-info mb-3">
+        <span class="badge <%= puzzle_difficulty_badge_class(@puzzle.difficulty) %>">
+          <%= @puzzle.difficulty.humanize %>
+        </span>
+        <span class="badge bg-info"><%= @puzzle.dimensions %></span>
+        <%= puzzle_status_badge(@puzzle) %>
+      </div>
+
+      <!-- Crossword Grid -->
+      <div class="crossword-container">
+        <div class="crossword-grid" style="grid-template-columns: repeat(<%= @puzzle.width %>, 1fr); grid-template-rows: repeat(<%= @puzzle.height %>, 1fr);">
+          <% @puzzle.height.times do |row| %>
+            <% @puzzle.width.times do |col| %>
+              <% cell_value = @puzzle.solution_grid.dig(row, col) || "" %>
+              <% is_blocked = cell_value == "*" %>
+              <div class="crossword-cell <%= 'blocked' if is_blocked %>"
+                   data-row="<%= row %>"
+                   data-col="<%= col %>">
+                <% unless is_blocked %>
+                  <span class="cell-letter"><%= cell_value %></span>
+                <% end %>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5>Puzzle Details</h5>
+        </div>
+        <div class="card-body">
+          <p><strong>Dimensions:</strong> <%= @puzzle.dimensions %></p>
+          <p><strong>Total Squares:</strong> <%= @puzzle.total_squares %></p>
+          <p><strong>Playable Squares:</strong> <%= @puzzle.playable_squares %></p>
+          <p><strong>Difficulty:</strong> <%= @puzzle.difficulty.humanize %></p>
+          <p><strong>Status:</strong> <%= @puzzle.published? ? "Published" : "Draft" %></p>
+          <p><strong>Created:</strong> <%= @puzzle.created_at.strftime("%B %d, %Y") %></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <%= link_to "Edit this puzzle", edit_puzzle_path(@puzzle), class: "btn btn-outline-secondary" %>
+    <%= link_to "Back to puzzles", puzzles_path, class: "btn btn-secondary" %>
+  </div>
+</div>

@@ -1,0 +1,12 @@
+<% content_for :title, "Editing puzzle" %>
+
+<h1>Editing puzzle</h1>
+
+<%= render "form", puzzle: @puzzle %>
+
+<br>
+
+<div>
+  <%= link_to "Show this puzzle", @puzzle %> |
+  <%= link_to "Back to puzzles", puzzles_path %>
+</div>

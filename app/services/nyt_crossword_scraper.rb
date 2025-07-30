@@ -80,52 +80,52 @@ class NytCrosswordScraper
 
   private
 
-  def extract_clues_from_section(doc, section_name)
-    clues = []
+    def extract_clues_from_section(doc, section_name)
+      clues = []
 
-    # Find the section header - updated to match actual HTML
-    section_header = doc.at("h3:contains('NYT #{section_name} Clues')")
-    return clues unless section_header
+      # Find the section header - updated to match actual HTML
+      section_header = doc.at("h3:contains('NYT #{section_name} Clues')")
+      return clues unless section_header
 
-    # Get the UL element that follows the header
-    ul_element = section_header.next_element
-    return clues unless ul_element && ul_element.name == "ul"
+      # Get the UL element that follows the header
+      ul_element = section_header.next_element
+      return clues unless ul_element && ul_element.name == "ul"
 
-    # Parse the text content of the UL
-    text_content = ul_element.text
+      # Parse the text content of the UL
+      text_content = ul_element.text
 
-    # Split by lines and process each potential clue
-    text_content.split("\n").each do |line|
-      line = line.strip
-      next if line.empty?
+      # Split by lines and process each potential clue
+      text_content.split("\n").each do |line|
+        line = line.strip
+        next if line.empty?
 
-      # Parse clue format: "1 [Clue text]ANSWER" or "1 Clue textANSWER"
-      # Handle both formats: with quotes and brackets
-      if match = line.match(/^(\d+)\s*["""]?([^"""\[\]]+?)["""]?\s*([A-Z]+)$/)
-        number = match[1].to_i
-        clue_text = match[2].strip
-        answer = match[3].strip.upcase
+        # Parse clue format: "1 [Clue text]ANSWER" or "1 Clue textANSWER"
+        # Handle both formats: with quotes and brackets
+        if match = line.match(/^(\d+)\s*["""]?([^"""\[\]]+?)["""]?\s*([A-Z]+)$/)
+          number = match[1].to_i
+          clue_text = match[2].strip
+          answer = match[3].strip.upcase
 
-        clues << {
-          number: number,
-          clue: clue_text,
-          answer: answer,
-          direction: section_name.downcase == "across" ? "across" : "down"
-        }
+          clues << {
+            number: number,
+            clue: clue_text,
+            answer: answer,
+            direction: section_name.downcase == "across" ? "across" : "down"
+          }
+        end
+      end
+
+      clues
+    end
+
+    def determine_difficulty(answer)
+      case answer.length
+      when 1..4
+        "easy"
+      when 5..8
+        "medium"
+      else
+        "hard"
       end
     end
-
-    clues
-  end
-
-  def determine_difficulty(answer)
-    case answer.length
-    when 1..4
-      "easy"
-    when 5..8
-      "medium"
-    else
-      "hard"
-    end
-  end
 end

@@ -1,0 +1,60 @@
+<%= form_with(model: puzzle) do |form| %>
+  <% if puzzle.errors.any? %>
+    <div style="color: red">
+      <h2><%= pluralize(puzzle.errors.count, "error") %> prohibited this puzzle from being saved:</h2>
+
+      <ul>
+        <% puzzle.errors.each do |error| %>
+          <li><%= error.full_message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= form.label :title, style: "display: block" %>
+    <%= form.text_field :title %>
+  </div>
+
+  <div>
+    <%= form.label :description, style: "display: block" %>
+    <%= form.textarea :description %>
+  </div>
+
+  <div>
+    <%= form.label :solution_grid, style: "display: block" %>
+    <%= form.textarea :solution_grid %>
+  </div>
+
+  <div>
+    <%= form.label :blank_grid, style: "display: block" %>
+    <%= form.textarea :blank_grid %>
+  </div>
+
+  <div>
+    <%= form.label :width, style: "display: block" %>
+    <%= form.number_field :width %>
+  </div>
+
+  <div>
+    <%= form.label :height, style: "display: block" %>
+    <%= form.number_field :height %>
+  </div>
+
+  <div>
+    <%= form.label :difficulty, style: "display: block" %>
+    <%= form.select :difficulty,
+                    options_for_select(Puzzle.difficulties.map { |key, value| [key.humanize, key] }, puzzle.difficulty),
+                    { prompt: "Select difficulty" },
+                    { class: "form-control" } %>
+  </div>
+
+  <div>
+    <%= form.label :published, style: "display: block" %>
+    <%= form.checkbox :published %>
+  </div>
+
+  <div>
+    <%= form.submit %>
+  </div>
+<% end %>
