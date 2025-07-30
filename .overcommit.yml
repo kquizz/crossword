@@ -79,6 +79,8 @@ PreCommit:
     exclude:
       - '**/db/structure.sql' # Ignore trailing whitespace in structure.sql
       - '**/vendor/**/*'
+      - '**/*.erb'
+      - '**/*.js'
 
   YamlSyntax:
     enabled: true

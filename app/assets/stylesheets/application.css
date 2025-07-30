@@ -9,6 +9,58 @@
  * Consider organizing styles into separate files for maintainability.
  */
 
+/* Navigation styles */
+.navbar {
+  background-color: #343a40;
+  color: white;
+  padding: 1rem 0;
+  margin-bottom: 2rem;
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+.nav-brand {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+  text-decoration: none;
+}
+
+.nav-brand:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.nav-link {
+  color: #adb5bd;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.nav-link:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+  text-decoration: none;
+}
+
+.main-content {
+  min-height: calc(100vh - 120px);
+}
+
 /* Clues table styling */
 .clue-text {
   max-width: 400px;
@@ -222,6 +274,37 @@
 .badge.bg-info {
   background-color: #0dcaf0 !important;
   color: #000 !important;
+}
+
+/* Interactive Crossword Grid Styles for Create/Play Mode */
+.crossword-interactive-grid {
+  display: grid;
+  gap: 0;
+  border: 2px solid #000;
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 0;
+}
+
+.crossword-interactive-grid .crossword-cell {
+  border: 1px solid #666 !important;
+  background-color: #fff !important;
+  box-sizing: border-box;
+}
+
+.crossword-interactive-grid .crossword-cell.blocked {
+  background-color: #000 !important;
+  color: #000 !important;
+  border: 1px solid #666 !important;
+}
+
+.crossword-interactive-grid .crossword-cell.selected {
+  background-color: #ffeb3b !important;
+  border: 2px solid #f57f17 !important;
+}
+
+.crossword-interactive-grid .crossword-cell.highlighted {
+  background-color: #e3f2fd !important;
 }
 
 /* Responsive grid */

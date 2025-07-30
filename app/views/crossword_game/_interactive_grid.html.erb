@@ -1,0 +1,407 @@
+<div class="crossword-game-container" 
+     data-controller="crossword-game"
+     data-crossword-game-mode-value="<%= @mode %>"
+     data-crossword-game-puzzle-id-value="<%= @puzzle&.id %>"
+     data-crossword-game-grid-value="<%= @grid.to_json %>">
+  <div class="game-header">
+    <% if @mode == 'create' %>
+      <h2>Create New Crossword Puzzle</h2>
+      <p>Click cells to toggle between empty/blocked, type letters to fill in answers</p>
+      
+      <div class="grid-size-controls">
+        <%= form_with url: crossword_game_create_path, method: :get, local: true, class: "grid-size-form" do |form| %>
+          <div class="size-inputs">
+            <label>
+              Width: <%= form.number_field :width, value: @grid.first&.length || 15, min: 5, max: 21, class: "size-input" %>
+            </label>
+            <label>
+              Height: <%= form.number_field :height, value: @grid.length || 15, min: 5, max: 21, class: "size-input" %>
+            </label>
+            <%= form.submit "Resize Grid", class: "btn btn-sm btn-outline-primary" %>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <h2><%= @puzzle&.title || 'Crossword Puzzle' %></h2>
+      <p><%= @puzzle&.description if @puzzle&.description.present? %></p>
+      <div class="game-instructions">
+        <small class="text-muted">
+          <strong>Controls:</strong> Click cells to select • Type letters to fill • 
+          <kbd>Enter</kbd> to change direction • <kbd>Tab</kbd> to next word • 
+          <kbd>Backspace</kbd> to erase and move back
+        </small>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="game-controls">
+    <div class="mode-indicators">
+      <span class="current-mode"><%= @mode == 'create' ? 'CREATE MODE' : 'PLAY MODE' %></span>
+      <span class="grid-info">
+        Grid: <%= @grid.is_a?(Array) ? "#{@grid.first&.length || 0}×#{@grid.length || 0}" : "Invalid" %>
+      </span>
+      <% if @mode == 'create' %>
+        <div class="create-controls">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="toggle-mode-btn">
+            Switch to Block Mode
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-primary" id="clear-grid-btn">
+            Clear Grid
+          </button>
+        </div>
+      <% else %>
+        <div class="play-controls">
+          <button type="button" class="btn btn-sm btn-outline-info" id="zoom-in-btn">
+            Zoom In
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-info" id="zoom-out-btn">
+            Zoom Out
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="reset-zoom-btn">
+            Reset Zoom
+          </button>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="crossword-interactive-grid" 
+       data-mode="<%= @mode %>" 
+       data-puzzle-id="<%= @puzzle&.id %>"
+       data-grid="<%= @grid.is_a?(Array) ? @grid.to_json : '[]' %>"
+       style="grid-template-columns: repeat(<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>, 1fr);">
+    <% if @grid.is_a?(Array) %>
+      <% @grid.each_with_index do |row, row_index| %>
+        <% row.each_with_index do |cell, col_index| %>
+          <div class="crossword-cell interactive <%= 'blocked' if cell == '#' %>"
+               data-row="<%= row_index %>"
+               data-col="<%= col_index %>"
+               tabindex="0"
+               <%= 'style="background-color: #000 !important; color: transparent !important;"'.html_safe if cell == '#' %>>
+            <% if cell && cell != '#' %>
+              <span class="cell-letter"><%= cell %></span>
+            <% elsif cell == '#' %>
+              <!-- Blocked cell - no content -->
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% else %>
+      <div class="error-message">
+        Error: Grid data is not an array. Type: <%= @grid.class %>, Value: <%= @grid.inspect %>
+      </div>
+    <% end %>
+  </div>
+
+  <% if @mode == 'create' %>
+    <div class="puzzle-form-container">
+      <%= form_with model: @puzzle, url: crossword_game_save_puzzle_path, local: true do |form| %>
+        <input type="hidden" name="grid" id="grid-data" value="<%= @grid.to_json %>">
+        
+        <div class="form-row">
+          <div class="form-group">
+            <%= form.label :title, class: "form-label" %>
+            <%= form.text_field :title, class: "form-control", required: true %>
+          </div>
+          
+          <div class="form-group">
+            <%= form.label :difficulty, class: "form-label" %>
+            <%= form.select :difficulty, 
+                options_for_select([
+                  ['Easy', 'easy'],
+                  ['Medium', 'medium'], 
+                  ['Hard', 'hard'],
+                  ['Expert', 'expert']
+                ], @puzzle.difficulty), 
+                { prompt: 'Select difficulty' }, 
+                { class: "form-control", required: true } %>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <%= form.label :description, class: "form-label" %>
+          <%= form.text_area :description, class: "form-control", rows: 3 %>
+        </div>
+
+        <div class="form-actions">
+          <%= form.submit "Save Puzzle", class: "btn btn-primary" %>
+          <%= link_to "Cancel", puzzles_path, class: "btn btn-outline-secondary" %>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="game-info">
+      <% if @puzzle %>
+        <div class="puzzle-details">
+          <span class="difficulty-badge badge bg-<%= difficulty_color(@puzzle.difficulty) %>">
+            <%= @puzzle.difficulty.humanize %>
+          </span>
+          <span class="puzzle-date">
+            <%= @puzzle.created_at&.strftime("%B %d, %Y") %>
+          </span>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+
+<style>
+.crossword-game-container {
+  max-width: 95vw;
+  margin: 1rem auto;
+  padding: 20px;
+}
+
+.game-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.game-instructions {
+  margin-top: 0.5rem;
+}
+
+.game-instructions kbd {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  font-size: 0.75rem;
+}
+
+.grid-size-controls {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #e9ecef;
+  border-radius: 8px;
+}
+
+.grid-size-form {
+  display: flex;
+  justify-content: center;
+}
+
+.size-inputs {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.size-input {
+  width: 60px;
+  padding: 0.25rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  margin-left: 0.5rem;
+}
+
+.game-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.mode-indicators {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.current-mode {
+  font-weight: bold;
+  color: #0d6efd;
+  font-size: 0.9rem;
+}
+
+.grid-info {
+  font-size: 0.9rem;
+  color: #6c757d;
+  font-family: 'Courier New', monospace;
+}
+
+.direction-indicator {
+  font-size: 0.9rem;
+  font-weight: bold;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+}
+
+.direction-indicator.across {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.direction-indicator.down {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.create-controls, .play-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.crossword-interactive-grid {
+  display: grid;
+  gap: 1px;
+  background-color: #000;
+  border: 2px solid #000;
+  max-width: 95vw;
+  max-height: 85vh;
+  margin: 0 auto 2rem auto;
+  overflow: auto;
+  /* Dynamic sizing based on grid dimensions */
+  width: clamp(300px, 90vw, 900px);
+  height: clamp(300px, 85vh, 900px);
+}
+
+.crossword-cell.interactive {
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  aspect-ratio: 1;
+  /* More flexible cell sizing */
+  min-height: clamp(25px, 4vw, 60px);
+  min-width: clamp(25px, 4vw, 60px);
+  font-weight: bold;
+  font-size: clamp(0.8rem, 2vw, 1.8rem);
+  font-family: 'Courier New', monospace;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.crossword-cell.interactive.blocked {
+  background-color: #000 !important;
+  color: transparent !important;
+  cursor: pointer;
+}
+
+.crossword-cell.interactive:focus {
+  outline: none;
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+.crossword-cell.interactive:not(.blocked):hover {
+  background-color: #e3f2fd;
+}
+
+.crossword-cell.interactive.selected {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.crossword-cell.interactive.highlighted {
+  background-color: #cce7ff;
+  border-color: #0d6efd;
+}
+
+.crossword-cell.interactive.selected.highlighted {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.puzzle-form-container {
+  background: #f8f9fa;
+  padding: 2rem;
+  border-radius: 8px;
+  margin-top: 2rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-group {
+  flex: 1;
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.game-info {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.puzzle-details {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.puzzle-date {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .crossword-interactive-grid {
+    width: clamp(280px, 95vw, 600px);
+    height: clamp(280px, 70vh, 600px);
+  }
+
+  .crossword-cell.interactive {
+    min-height: clamp(20px, 6vw, 50px);
+    min-width: clamp(20px, 6vw, 50px);
+    font-size: clamp(0.7rem, 3vw, 1.4rem);
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .game-controls {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* Large grid adjustments */
+@media (min-width: 1200px) {
+  .crossword-interactive-grid {
+    width: clamp(400px, 70vw, 900px);
+    height: clamp(400px, 70vh, 900px);
+  }
+  
+  .crossword-cell.interactive {
+    min-height: clamp(30px, 3vw, 70px);
+    min-width: clamp(30px, 3vw, 70px);
+    font-size: clamp(1rem, 1.5vw, 2rem);
+  }
+}
+</style>

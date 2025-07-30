@@ -1,4 +1,14 @@
 Rails.application.routes.draw do
+  # Root route
+  root "puzzles#index"
+
+  # Crossword game routes
+  get "crossword_game/play/:id", to: "crossword_game#play", as: :play_crossword
+  get "crossword_game/play", to: "crossword_game#play"
+  get "crossword_game/create", to: "crossword_game#create"
+  post "crossword_game/save_puzzle", to: "crossword_game#save_puzzle"
+  patch "crossword_game/update_cell", to: "crossword_game#update_cell"
+
   resources :puzzles
   resources :clues
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html

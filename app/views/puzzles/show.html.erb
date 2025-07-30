@@ -23,7 +23,7 @@
           <% @puzzle.height.times do |row| %>
             <% @puzzle.width.times do |col| %>
               <% cell_value = @puzzle.solution_grid.dig(row, col) || "" %>
-              <% is_blocked = cell_value == "*" %>
+              <% is_blocked = cell_value == "#" %>
               <div class="crossword-cell <%= 'blocked' if is_blocked %>"
                    data-row="<%= row %>"
                    data-col="<%= col %>">
