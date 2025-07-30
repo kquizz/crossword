@@ -32,3 +32,64 @@
 
 # Ignore master key for decrypting credentials and more.
 /config/master.key
+
+# Ignore database files (especially important for public repos)
+*.sqlite3
+*.sqlite3-*
+/db/*.sqlite3
+/db/*.sqlite3-*
+
+# Ignore sensitive configuration files
+.env
+.env.local
+.env.*.local
+config/database.yml
+config/secrets.yml
+
+# Ignore IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Ignore OS generated files
+.DS_Store?
+ehthumbs.db
+Icon?
+
+# Ignore coverage reports
+/coverage/
+/spec/reports/
+
+# Ignore yarn files if using Yarn
+yarn-debug.log*
+yarn-error.log*
+node_modules/
+
+# Ignore Ruby version files (if using rbenv/rvm)
+.ruby-version
+.rvmrc
+
+# Ignore Byebug command history
+.byebug_history
+
+# Ignore Spring files
+/spring/*.pid
+
+# Ignore bootsnap cache
+/tmp/bootsnap*
+
+# Ignore Capistrano files (if you add deployment later)
+/config/deploy/
+/log/capistrano.log
+
+# Ignore any backup files
+*.bak
+*.backup
+*.tmp
+
+# Ignore Overcommit signature file
+.overcommit-signature
