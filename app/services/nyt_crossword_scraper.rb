@@ -1,0 +1,115 @@
+require "httparty"
+require "nokogiri"
+
+class NytCrosswordScraper
+  include HTTParty
+  base_uri "https://nytcrosswordanswers.org"
+
+  def initialize(date = nil)
+    @date = date || Date.current.strftime("%m-%d-%y")
+    @url = "/nyt-crossword-answers-#{@date}/"
+  end
+
+  def scrape_clues
+    puts "Scraping clues from: #{self.class.base_uri}#{@url}"
+
+    response = self.class.get(@url)
+
+    unless response.success?
+      Rails.logger.error "Failed to fetch page: #{response.code}"
+      return { across: [], down: [] }
+    end
+
+    doc = Nokogiri::HTML(response.body)
+
+    {
+      across: extract_clues_from_section(doc, "Across"),
+      down: extract_clues_from_section(doc, "Vertical")
+    }
+  end
+
+  def save_clues_to_database!
+    clue_data = scrape_clues
+    saved_count = 0
+
+    ActiveRecord::Base.transaction do
+      # Save ACROSS clues
+      clue_data[:across].each do |clue_info|
+        clue = Clue.find_or_create_by(
+          clue_text: clue_info[:clue],
+          answer: clue_info[:answer]
+        ) do |c|
+          c.difficulty = determine_difficulty(clue_info[:answer])
+          c.category = "NYT #{@date}"
+        end
+        saved_count += 1 if clue.persisted?
+      end
+
+      # Save DOWN clues
+      clue_data[:down].each do |clue_info|
+        clue = Clue.find_or_create_by(
+          clue_text: clue_info[:clue],
+          answer: clue_info[:answer]
+        ) do |c|
+          c.difficulty = determine_difficulty(clue_info[:answer])
+          c.category = "NYT #{@date}"
+        end
+        saved_count += 1 if clue.persisted?
+      end
+    end
+
+    puts "Saved #{saved_count} clues to database"
+    saved_count
+  end
+
+  private
+
+  def extract_clues_from_section(doc, section_name)
+    clues = []
+
+    # Find the section header - updated to match actual HTML
+    section_header = doc.at("h3:contains('NYT #{section_name} Clues')")
+    return clues unless section_header
+
+    # Get the UL element that follows the header
+    ul_element = section_header.next_element
+    return clues unless ul_element && ul_element.name == "ul"
+
+    # Parse the text content of the UL
+    text_content = ul_element.text
+
+    # Split by lines and process each potential clue
+    text_content.split("\n").each do |line|
+      line = line.strip
+      next if line.empty?
+
+      # Parse clue format: "1 [Clue text]ANSWER" or "1 Clue textANSWER"
+      # Handle both formats: with quotes and brackets
+      if match = line.match(/^(\d+)\s*["""]?([^"""\[\]]+?)["""]?\s*([A-Z]+)$/)
+        number = match[1].to_i
+        clue_text = match[2].strip
+        answer = match[3].strip.upcase
+
+        clues << {
+          number: number,
+          clue: clue_text,
+          answer: answer,
+          direction: section_name.downcase == "across" ? "across" : "down"
+        }
+      end
+    end
+
+    clues
+  end
+
+  def determine_difficulty(answer)
+    case answer.length
+    when 1..4
+      "easy"
+    when 5..8
+      "medium"
+    else
+      "hard"
+    end
+  end
+end
