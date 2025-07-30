@@ -1,0 +1,12 @@
+<% content_for :title, "Editing clue" %>
+
+<h1>Editing clue</h1>
+
+<%= render "form", clue: @clue %>
+
+<br>
+
+<div>
+  <%= link_to "Show this clue", @clue %> |
+  <%= link_to "Back to clues", clues_path %>
+</div>

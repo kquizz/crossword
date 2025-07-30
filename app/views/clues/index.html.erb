@@ -1,0 +1,16 @@
+<p style="color: green"><%= notice %></p>
+
+<% content_for :title, "Clues" %>
+
+<h1>Clues</h1>
+
+<div id="clues">
+  <% @clues.each do |clue| %>
+    <%= render clue %>
+    <p>
+      <%= link_to "Show this clue", clue %>
+    </p>
+  <% end %>
+</div>
+
+<%= link_to "New clue", new_clue_path %>

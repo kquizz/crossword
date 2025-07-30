@@ -1,0 +1,10 @@
+<p style="color: green"><%= notice %></p>
+
+<%= render @clue %>
+
+<div>
+  <%= link_to "Edit this clue", edit_clue_path(@clue) %> |
+  <%= link_to "Back to clues", clues_path %>
+
+  <%= button_to "Destroy this clue", @clue, method: :delete %>
+</div>
