@@ -67,8 +67,28 @@
 
   <% if @mode == 'create' %>
     <div class="create-layout">
-      <div class="clues-suggestions">
-        <p class="no-selection">Select a word to see matching clues</p>
+      <div class="clues-panel">
+        <div class="clues-suggestions">
+          <p class="no-selection">Select a word to see matching clues</p>
+        </div>
+        
+        <div class="clues-preview">
+          <h4>Puzzle Clues Preview</h4>
+          <div class="clues-lists">
+            <div class="across-clues">
+              <h5>Across</h5>
+              <div class="clue-list" id="across-clues-list">
+                <p class="no-clues-yet">No across clues yet</p>
+              </div>
+            </div>
+            <div class="down-clues">
+              <h5>Down</h5>
+              <div class="clue-list" id="down-clues-list">
+                <p class="no-clues-yet">No down clues yet</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       
       <div class="grid-container">
@@ -470,13 +490,73 @@
 }
 
 .clues-suggestions {
-  flex: 0 0 350px;
   background: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 8px;
   padding: 1.5rem;
-  max-height: 600px;
+  max-height: 400px;
   overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.clues-panel {
+  flex: 0 0 350px;
+}
+
+.clues-preview {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.clues-preview h4 {
+  margin: 0 0 1rem 0;
+  color: #495057;
+  text-align: center;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 0.5rem;
+}
+
+.clues-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.across-clues h5,
+.down-clues h5 {
+  margin: 0 0 0.75rem 0;
+  color: #495057;
+  font-weight: 600;
+}
+
+.clue-list {
+  font-size: 0.9rem;
+}
+
+.clue-entry {
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.clue-entry:last-child {
+  border-bottom: none;
+}
+
+.clue-number {
+  font-weight: bold;
+  color: #0d6efd;
+}
+
+.no-clues-yet {
+  color: #6c757d;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem 0;
 }
 
 .clues-header h4 {
