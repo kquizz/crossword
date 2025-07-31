@@ -7,10 +7,15 @@ Rails.application.routes.draw do
   get "crossword_game/play", to: "crossword_game#play"
   get "crossword_game/create", to: "crossword_game#create"
   post "crossword_game/save_puzzle", to: "crossword_game#save_puzzle"
+  post "crossword_game/save_puzzle_clue", to: "crossword_game#save_puzzle_clue"
   patch "crossword_game/update_cell", to: "crossword_game#update_cell"
 
   resources :puzzles
-  resources :clues
+  resources :clues do
+    collection do
+      post :search
+    end
+  end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

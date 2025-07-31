@@ -1,12 +1,26 @@
 class CluesController < ApplicationController
   before_action :set_clue, only: %i[ show edit update destroy ]
+  skip_before_action :verify_authenticity_token, only: [ :search ]
 
   # GET /clues or /clues.json
   def index
     @clues = Clue.all
   end
 
-  # GET /clues/1 or /clues/1.json
+  # POST /clues/search - Search for clues matching a pattern
+  def search
+    length = params[:length].to_i
+    pattern = params[:pattern].upcase
+
+    # Convert pattern to SQL LIKE pattern (replace _ with %)
+    sql_pattern = pattern.gsub("_", "%")
+
+    clues = Clue.select(:id, :clue_text, :answer)
+                .where("LENGTH(answer) = ? AND UPPER(answer) LIKE ?", length, sql_pattern)
+                .limit(20)
+
+    render json: clues
+  end  # GET /clues/1 or /clues/1.json
   def show
   end
 

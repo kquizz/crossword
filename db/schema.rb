@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_07_30_031217) do
+ActiveRecord::Schema[8.0].define(version: 2025_07_31_031153) do
   create_table "clues", force: :cascade do |t|
     t.text "clue_text"
     t.string "answer"
@@ -18,6 +18,17 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_30_031217) do
     t.string "category"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "puzzle_clues", force: :cascade do |t|
+    t.integer "puzzle_id", null: false
+    t.integer "clue_id", null: false
+    t.integer "number"
+    t.string "direction"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["clue_id"], name: "index_puzzle_clues_on_clue_id"
+    t.index ["puzzle_id"], name: "index_puzzle_clues_on_puzzle_id"
   end
 
   create_table "puzzles", force: :cascade do |t|
@@ -32,4 +43,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_30_031217) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
+
+  add_foreign_key "puzzle_clues", "clues"
+  add_foreign_key "puzzle_clues", "puzzles"
 end

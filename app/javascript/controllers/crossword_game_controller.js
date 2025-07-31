@@ -12,8 +12,10 @@ export default class extends Controller {
     this.isBlockMode = false
     this.selectedCell = null
     this.zoomLevel = 1
-    this.direction = 'across' // 'across' or 'down'
+    this.direction = 'across'
     this.highlightedCells = []
+    this.usedClueIds = new Set() // Track used clue IDs to prevent duplicates
+    this.appliedClues = new Map() // Track which clues are applied to which word positions
     this.initializeGrid()
     this.bindEvents()
   }
@@ -102,6 +104,8 @@ export default class extends Controller {
       if (!(this.modeValue === 'create' && this.isBlockMode)) {
         this.highlightCurrentWord(row, col)
         this.updateDirectionIndicator()
+        // Show matching clues for the current word
+        this.updateCluesSuggestions(row, col)
       }
     }
   }
@@ -698,5 +702,342 @@ export default class extends Controller {
     const height = this.gridHeight || 15
     const width = this.gridWidth || 15
     return Array(height).fill().map(() => Array(width).fill(null))
+  }
+
+  // Clue suggestion methods
+  updateCluesSuggestions(row, col) {
+    if (this.modeValue !== 'create' || this.isBlockMode) return
+
+    const currentWord = this.getCurrentWordInfo(row, col)
+    if (currentWord && currentWord.length >= 3) {
+      this.fetchMatchingClues(currentWord)
+    } else {
+      this.clearCluesSuggestions()
+    }
+  }
+
+  getCurrentWordInfo(row, col) {
+    const numbering = this.calculateGridNumbering(this.gridData)
+    let wordInfo = null
+
+    if (this.direction === 'across') {
+      // Find start of current across word
+      let startCol = col
+      while (startCol > 0 && !this.isCellBlocked(row, startCol - 1)) {
+        startCol--
+      }
+
+      // Find end of current across word
+      let endCol = col
+      while (endCol < this.gridWidth - 1 && !this.isCellBlocked(row, endCol + 1)) {
+        endCol++
+      }
+
+      // Check if this word has a number (starts a word)
+      const wordNumber = numbering[`${row},${startCol}`]
+      if (wordNumber && endCol > startCol) {
+        // Get current word pattern
+        let pattern = ''
+        for (let c = startCol; c <= endCol; c++) {
+          const cellValue = this.gridData[row][c]
+          pattern += cellValue || '_'
+        }
+
+        wordInfo = {
+          number: wordNumber,
+          direction: 'across',
+          length: endCol - startCol + 1,
+          pattern: pattern,
+          startRow: row,
+          startCol: startCol
+        }
+      }
+    } else {
+      // Find start of current down word
+      let startRow = row
+      while (startRow > 0 && !this.isCellBlocked(startRow - 1, col)) {
+        startRow--
+      }
+
+      // Find end of current down word
+      let endRow = row
+      while (endRow < this.gridHeight - 1 && !this.isCellBlocked(endRow + 1, col)) {
+        endRow++
+      }
+
+      // Check if this word has a number (starts a word)
+      const wordNumber = numbering[`${startRow},${col}`]
+      if (wordNumber && endRow > startRow) {
+        // Get current word pattern
+        let pattern = ''
+        for (let r = startRow; r <= endRow; r++) {
+          const cellValue = this.gridData[r][col]
+          pattern += cellValue || '_'
+        }
+
+        wordInfo = {
+          number: wordNumber,
+          direction: 'down',
+          length: endRow - startRow + 1,
+          pattern: pattern,
+          startRow: startRow,
+          startCol: col
+        }
+      }
+    }
+
+    return wordInfo
+  }
+
+  fetchMatchingClues(wordInfo) {
+    const cluesPanel = this.element.querySelector('.clues-suggestions')
+    if (!cluesPanel) return
+
+    // Show loading state
+    cluesPanel.innerHTML = `
+      <div class="clues-header">
+        <h4>Matching Clues</h4>
+        <p>Word: ${wordInfo.number} ${wordInfo.direction} (${wordInfo.length} letters)</p>
+        <p>Pattern: ${wordInfo.pattern.replace(/_/g, '□')}</p>
+      </div>
+      <div class="loading">Loading matching clues...</div>
+    `
+
+    // Fetch clues that match the pattern
+    fetch('/clues/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
+      },
+      body: JSON.stringify({
+        length: wordInfo.length,
+        pattern: wordInfo.pattern
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      this.displayCluesSuggestions(data, wordInfo)
+    })
+    .catch(error => {
+      console.error('Error fetching clues:', error)
+      cluesPanel.innerHTML = `
+        <div class="clues-header">
+          <h4>Matching Clues</h4>
+          <p>Word: ${wordInfo.number} ${wordInfo.direction} (${wordInfo.length} letters)</p>
+        </div>
+        <div class="error">Error loading clues</div>
+      `
+    })
+  }
+
+  displayCluesSuggestions(clues, wordInfo) {
+    const cluesPanel = this.element.querySelector('.clues-suggestions')
+    if (!cluesPanel) return
+
+    // Filter out clues that have already been used
+    const availableClues = clues.filter(clue => !this.usedClueIds.has(clue.id.toString()))
+
+    // Create a unique key for this word position
+    const wordKey = `${wordInfo.startRow},${wordInfo.startCol},${wordInfo.direction}`
+    const currentAppliedClue = this.appliedClues.get(wordKey)
+
+    let html = `
+      <div class="clues-header">
+        <h4>Matching Clues</h4>
+        <p>Word: ${wordInfo.number} ${wordInfo.direction} (${wordInfo.length} letters)</p>
+        <p>Pattern: ${wordInfo.pattern.replace(/_/g, '□')}</p>
+      </div>
+    `
+
+    // If there's already a clue applied to this word, show undo option
+    if (currentAppliedClue) {
+      html += `
+        <div class="current-clue">
+          <h5>Current Clue:</h5>
+          <div class="clue-item applied">
+            <div class="clue-text">${currentAppliedClue.clueText}</div>
+            <div class="clue-answer">${currentAppliedClue.answer} (${currentAppliedClue.answer.length})</div>
+          </div>
+          <button class="btn btn-sm btn-outline-warning undo-clue-btn" data-word-key="${wordKey}">
+            Undo This Clue
+          </button>
+        </div>
+        <hr>
+      `
+    }
+
+    if (availableClues.length === 0) {
+      html += '<p class="no-clues">No unused matching clues found</p>'
+    } else {
+      html += '<div class="clues-list">'
+      availableClues.forEach(clue => {
+        html += `
+          <div class="clue-item clickable" data-clue-id="${clue.id}" data-answer="${clue.answer}">
+            <div class="clue-text">${clue.clue_text}</div>
+            <div class="clue-answer">${clue.answer} (${clue.answer.length})</div>
+          </div>
+        `
+      })
+      html += '</div>'
+    }
+
+    cluesPanel.innerHTML = html
+
+    // Add event listeners for clickable clue items
+    cluesPanel.querySelectorAll('.clue-item.clickable').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const clueId = item.dataset.clueId
+        const answer = item.dataset.answer
+        this.useClueForCurrentWord(clueId, answer, wordInfo)
+      })
+    })
+
+    // Add event listener for undo button
+    const undoBtn = cluesPanel.querySelector('.undo-clue-btn')
+    if (undoBtn) {
+      undoBtn.addEventListener('click', (e) => {
+        const wordKey = e.target.dataset.wordKey
+        this.undoClueForWord(wordKey, wordInfo)
+      })
+    }
+  }
+
+  useClueForCurrentWord(clueId, answer, wordInfo) {
+    // Add this clue to the used clues set
+    this.usedClueIds.add(clueId.toString())
+
+    // Create a unique key for this word position
+    const wordKey = `${wordInfo.startRow},${wordInfo.startCol},${wordInfo.direction}`
+    
+    // If there was already a clue applied to this word, remove it from used clues
+    const previousClue = this.appliedClues.get(wordKey)
+    if (previousClue) {
+      this.usedClueIds.delete(previousClue.clueId.toString())
+    }
+
+    // Store the applied clue information
+    this.appliedClues.set(wordKey, {
+      clueId: clueId,
+      clueText: this.element.querySelector(`[data-clue-id="${clueId}"] .clue-text`).textContent,
+      answer: answer,
+      wordInfo: { ...wordInfo }
+    })
+
+    // Fill in the answer in the grid
+    if (wordInfo.direction === 'across') {
+      for (let i = 0; i < answer.length; i++) {
+        const col = wordInfo.startCol + i
+        if (col < this.gridWidth) {
+          this.setCellValue(wordInfo.startRow, col, answer[i])
+        }
+      }
+    } else {
+      for (let i = 0; i < answer.length; i++) {
+        const row = wordInfo.startRow + i
+        if (row < this.gridHeight) {
+          this.setCellValue(row, wordInfo.startCol, answer[i])
+        }
+      }
+    }
+
+    // Save the clue association to the puzzle (if we have a puzzle ID)
+    if (this.puzzleIdValue) {
+      this.savePuzzleClue(clueId, wordInfo.number, wordInfo.direction)
+    }
+    
+    // Refresh the clues suggestions to show the undo option
+    this.displayCluesSuggestions([], wordInfo)
+  }
+
+  savePuzzleClue(clueId, number, direction) {
+    fetch('/crossword_game/save_puzzle_clue', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
+      },
+      body: JSON.stringify({
+        puzzle_id: this.puzzleIdValue,
+        clue_id: clueId,
+        number: number,
+        direction: direction
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        console.log(`Saved clue ${clueId} for word ${number} ${direction}`)
+      } else {
+        console.error('Failed to save puzzle clue:', data.error)
+      }
+    })
+    .catch(error => {
+      console.error('Error saving puzzle clue:', error)
+    })
+  }
+
+  undoClueForWord(wordKey, currentWordInfo) {
+    const appliedClue = this.appliedClues.get(wordKey)
+    if (!appliedClue) return
+
+    // Remove the clue from used clues set
+    this.usedClueIds.delete(appliedClue.clueId.toString())
+
+    // Remove the clue from applied clues
+    this.appliedClues.delete(wordKey)
+
+    // Clear letters that are unique to this word (not part of intersecting words)
+    const wordInfo = appliedClue.wordInfo
+    const positions = this.getWordPositions(wordInfo)
+    
+    positions.forEach(({row, col}) => {
+      // Check if this position is part of any other applied clue
+      if (!this.isPositionUsedByOtherClues(row, col, wordKey)) {
+        this.setCellValue(row, col, '')
+      }
+    })
+
+    // Refresh the clues suggestions
+    this.updateCluesSuggestions(currentWordInfo.startRow, currentWordInfo.startCol)
+  }
+
+  getWordPositions(wordInfo) {
+    const positions = []
+    if (wordInfo.direction === 'across') {
+      for (let i = 0; i < wordInfo.length; i++) {
+        positions.push({
+          row: wordInfo.startRow,
+          col: wordInfo.startCol + i
+        })
+      }
+    } else {
+      for (let i = 0; i < wordInfo.length; i++) {
+        positions.push({
+          row: wordInfo.startRow + i,
+          col: wordInfo.startCol
+        })
+      }
+    }
+    return positions
+  }
+
+  isPositionUsedByOtherClues(row, col, excludeWordKey) {
+    // Check if this position is covered by any other applied clue
+    for (const [wordKey, appliedClue] of this.appliedClues.entries()) {
+      if (wordKey === excludeWordKey) continue
+      
+      const positions = this.getWordPositions(appliedClue.wordInfo)
+      const isUsed = positions.some(pos => pos.row === row && pos.col === col)
+      if (isUsed) return true
+    }
+    return false
+  }
+
+  clearCluesSuggestions() {
+    const cluesPanel = this.element.querySelector('.clues-suggestions')
+    if (cluesPanel) {
+      cluesPanel.innerHTML = '<p class="no-selection">Select a word to see matching clues</p>'
+    }
   }
 }

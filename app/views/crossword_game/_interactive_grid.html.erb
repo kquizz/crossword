@@ -65,75 +65,117 @@
     </div>
   </div>
 
-  <div class="crossword-interactive-grid"
-       data-mode="<%= @mode %>"
-       data-puzzle-id="<%= @puzzle&.id %>"
-       data-grid="<%= @grid.is_a?(Array) ? @grid.to_json : '[]' %>"
-       style="grid-template-columns: repeat(<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>, 1fr);">
-    <% if @grid.is_a?(Array) %>
-      <% numbering = calculate_grid_numbering(@grid) %>
-      <% @grid.each_with_index do |row, row_index| %>
-        <% row.each_with_index do |cell, col_index| %>
-          <div class="crossword-cell interactive <%= 'blocked' if cell == '#' %>"
-               data-row="<%= row_index %>"
-               data-col="<%= col_index %>"
-               tabindex="0"
-               <%= 'style="background-color: #000 !important; color: transparent !important;"'.html_safe if cell == '#' %>>
-            <% if numbering[[row_index, col_index]] %>
-              <span class="cell-number"><%= numbering[[row_index, col_index]] %></span>
+  <% if @mode == 'create' %>
+    <div class="create-layout">
+      <div class="clues-suggestions">
+        <p class="no-selection">Select a word to see matching clues</p>
+      </div>
+      
+      <div class="grid-container">
+        <div class="crossword-interactive-grid"
+             data-mode="<%= @mode %>"
+             data-puzzle-id="<%= @puzzle&.id %>"
+             data-grid="<%= @grid.is_a?(Array) ? @grid.to_json : '[]' %>"
+             style="grid-template-columns: repeat(<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>, 1fr);">
+          <% if @grid.is_a?(Array) %>
+            <% numbering = calculate_grid_numbering(@grid) %>
+            <% @grid.each_with_index do |row, row_index| %>
+              <% row.each_with_index do |cell, col_index| %>
+                <div class="crossword-cell interactive <%= 'blocked' if cell == '#' %>"
+                     data-row="<%= row_index %>"
+                     data-col="<%= col_index %>"
+                     tabindex="0"
+                     <%= 'style="background-color: #000 !important; color: transparent !important;"'.html_safe if cell == '#' %>>
+                  <% if numbering[[row_index, col_index]] %>
+                    <span class="cell-number"><%= numbering[[row_index, col_index]] %></span>
+                  <% end %>
+                  <% if cell && cell != '#' %>
+                    <span class="cell-letter"><%= cell %></span>
+                  <% elsif cell == '#' %>
+                    <!-- Blocked cell - no content -->
+                  <% end %>
+                </div>
+              <% end %>
             <% end %>
-            <% if cell && cell != '#' %>
-              <span class="cell-letter"><%= cell %></span>
-            <% elsif cell == '#' %>
-              <!-- Blocked cell - no content -->
-            <% end %>
+          <% else %>
+            <div class="error-message">
+              Error: Grid data is not an array. Type: <%= @grid.class %>, Value: <%= @grid.inspect %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+      
+      <div class="puzzle-form-container">
+      
+      <div class="puzzle-form-container">
+        <%= form_with model: @puzzle, url: crossword_game_save_puzzle_path, local: true do |form| %>
+          <input type="hidden" name="grid" id="grid-data" value="<%= @grid.to_json %>">
+          
+          <div class="form-row">
+            <div class="form-group">
+              <%= form.label :title, class: "form-label" %>
+              <%= form.text_field :title, class: "form-control", required: true %>
+            </div>
+            
+            <div class="form-group">
+              <%= form.label :difficulty, class: "form-label" %>
+              <%= form.select :difficulty, 
+                  options_for_select([
+                    ['Easy', 'easy'],
+                    ['Medium', 'medium'], 
+                    ['Hard', 'hard'],
+                    ['Expert', 'expert']
+                  ], @puzzle.difficulty), 
+                  { prompt: 'Select difficulty' }, 
+                  { class: "form-control", required: true } %>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <%= form.label :description, class: "form-label" %>
+            <%= form.text_area :description, class: "form-control", rows: 3 %>
+          </div>
+
+          <div class="form-actions">
+            <%= form.submit "Save Puzzle", class: "btn btn-primary" %>
+            <%= link_to "Cancel", puzzles_path, class: "btn btn-outline-secondary" %>
           </div>
         <% end %>
-      <% end %>
-    <% else %>
-      <div class="error-message">
-        Error: Grid data is not an array. Type: <%= @grid.class %>, Value: <%= @grid.inspect %>
       </div>
-    <% end %>
-  </div>
-
-  <% if @mode == 'create' %>
-    <div class="puzzle-form-container">
-      <%= form_with model: @puzzle, url: crossword_game_save_puzzle_path, local: true do |form| %>
-        <input type="hidden" name="grid" id="grid-data" value="<%= @grid.to_json %>">
-        
-        <div class="form-row">
-          <div class="form-group">
-            <%= form.label :title, class: "form-label" %>
-            <%= form.text_field :title, class: "form-control", required: true %>
-          </div>
-          
-          <div class="form-group">
-            <%= form.label :difficulty, class: "form-label" %>
-            <%= form.select :difficulty, 
-                options_for_select([
-                  ['Easy', 'easy'],
-                  ['Medium', 'medium'], 
-                  ['Hard', 'hard'],
-                  ['Expert', 'expert']
-                ], @puzzle.difficulty), 
-                { prompt: 'Select difficulty' }, 
-                { class: "form-control", required: true } %>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <%= form.label :description, class: "form-label" %>
-          <%= form.text_area :description, class: "form-control", rows: 3 %>
-        </div>
-
-        <div class="form-actions">
-          <%= form.submit "Save Puzzle", class: "btn btn-primary" %>
-          <%= link_to "Cancel", puzzles_path, class: "btn btn-outline-secondary" %>
+    </div> <!-- End create-layout -->
+  <% else %>
+    <div class="crossword-interactive-grid"
+         data-mode="<%= @mode %>"
+         data-puzzle-id="<%= @puzzle&.id %>"
+         data-grid="<%= @grid.is_a?(Array) ? @grid.to_json : '[]' %>"
+         style="grid-template-columns: repeat(<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>, 1fr);">
+      <% if @grid.is_a?(Array) %>
+        <% numbering = calculate_grid_numbering(@grid) %>
+        <% @grid.each_with_index do |row, row_index| %>
+          <% row.each_with_index do |cell, col_index| %>
+            <div class="crossword-cell interactive <%= 'blocked' if cell == '#' %>"
+                 data-row="<%= row_index %>"
+                 data-col="<%= col_index %>"
+                 tabindex="0"
+                 <%= 'style="background-color: #000 !important; color: transparent !important;"'.html_safe if cell == '#' %>>
+              <% if numbering[[row_index, col_index]] %>
+                <span class="cell-number"><%= numbering[[row_index, col_index]] %></span>
+              <% end %>
+              <% if cell && cell != '#' %>
+                <span class="cell-letter"><%= cell %></span>
+              <% elsif cell == '#' %>
+                <!-- Blocked cell - no content -->
+              <% end %>
+            </div>
+          <% end %>
+        <% end %>
+      <% else %>
+        <div class="error-message">
+          Error: Grid data is not an array. Type: <%= @grid.class %>, Value: <%= @grid.inspect %>
         </div>
       <% end %>
     </div>
-  <% else %>
+
     <div class="game-info">
       <% if @puzzle %>
         <div class="puzzle-details">
@@ -146,6 +188,7 @@
         </div>
       <% end %>
     </div>
+    </div> <!-- End game-layout -->
   <% end %>
 </div>
 
@@ -171,6 +214,94 @@
   border-radius: 0.25rem;
   padding: 0.125rem 0.25rem;
   font-size: 0.75rem;
+}
+
+.create-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 2rem;
+  align-items: start;
+  margin-top: 2rem;
+  max-width: 100%;
+}
+
+.grid-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.clues-suggestions {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-height: 600px;
+  overflow-y: auto;
+  position: sticky;
+  top: 2rem;
+}
+
+.clues-header h4 {
+  margin: 0 0 0.5rem 0;
+  color: #495057;
+}
+
+.clues-header p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.clues-list {
+  margin-top: 1rem;
+}
+
+.clue-item {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s;
+}
+
+.clue-item:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.clue-text {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #212529;
+}
+
+.clue-answer {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-bottom: 0.75rem;
+}
+
+.use-clue-btn {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.75rem;
+}
+
+.no-clues, .no-selection, .loading, .error {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 2rem 1rem;
+}
+
+.error {
+  color: #dc3545;
+}
+
+.loading {
+  color: #0d6efd;
 }
 
 .grid-size-controls {
@@ -259,10 +390,10 @@
   gap: 1px;
   background-color: #000;
   border: 2px solid #000;
-  margin: 0 auto 2rem auto;
+  margin: 0 auto;
   overflow: auto;
   /* Dynamic sizing - let JavaScript handle the sizing */
-  max-width: 95vw;
+  max-width: 90vw;
   max-height: 85vh;
 }
 
@@ -331,11 +462,114 @@
   color: white;
 }
 
+.game-layout {
+  display: flex;
+  gap: 2rem;
+  margin-top: 2rem;
+  align-items: flex-start;
+}
+
+.clues-suggestions {
+  flex: 0 0 350px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.clues-header h4 {
+  margin: 0 0 0.5rem 0;
+  color: #495057;
+}
+
+.clues-header p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.clues-list {
+  margin-top: 1rem;
+}
+
+.clue-item {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s;
+}
+
+.clue-item.clickable {
+  cursor: pointer;
+}
+
+.clue-item:hover,
+.clue-item.clickable:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background-color: #f8f9ff;
+}
+
+.clue-item.applied {
+  background-color: #e8f5e8;
+  border-color: #28a745;
+}
+
+.current-clue {
+  margin-bottom: 1rem;
+}
+
+.current-clue h5 {
+  margin: 0 0 0.5rem 0;
+  color: #28a745;
+  font-size: 1rem;
+}
+
+.undo-clue-btn {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+.clue-text {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #212529;
+}
+
+.clue-answer {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  color: #0d6efd;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.no-clues, .no-selection, .loading, .error {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 2rem 1rem;
+}
+
+.loading {
+  color: #0d6efd;
+}
+
+.error {
+  color: #dc3545;
+}
+
 .puzzle-form-container {
   background: #f8f9fa;
-  padding: 2rem;
+  border: 1px solid #dee2e6;
+  padding: 1.5rem;
   border-radius: 8px;
-  margin-top: 2rem;
+  position: sticky;
+  top: 2rem;
 }
 
 .form-row {
@@ -388,6 +622,21 @@
 }
 
 @media (max-width: 768px) {
+  .create-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 1rem;
+  }
+  
+  .clues-suggestions {
+    max-height: 300px;
+    position: static;
+  }
+  
+  .puzzle-form-container {
+    position: static;
+  }
+
   .crossword-interactive-grid {
     width: clamp(280px, 95vw, 600px);
     height: clamp(280px, 70vh, 600px);

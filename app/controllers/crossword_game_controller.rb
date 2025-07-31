@@ -59,6 +59,39 @@ class CrosswordGameController < ApplicationController
     end
   end
 
+  def save_puzzle_clue
+    puzzle = Puzzle.find(params[:puzzle_id])
+    clue = Clue.find(params[:clue_id])
+    number = params[:number].to_i
+    direction = params[:direction]
+
+    # Check if this puzzle clue already exists
+    existing_puzzle_clue = puzzle.puzzle_clues.find_by(number: number, direction: direction)
+
+    if existing_puzzle_clue
+      # Update existing
+      existing_puzzle_clue.update(clue: clue)
+      render json: { success: true, message: "Updated existing clue" }
+    else
+      # Create new
+      puzzle_clue = puzzle.puzzle_clues.build(
+        clue: clue,
+        number: number,
+        direction: direction
+      )
+
+      if puzzle_clue.save
+        render json: { success: true, message: "Clue saved successfully" }
+      else
+        render json: { success: false, error: puzzle_clue.errors.full_messages.join(", ") }
+      end
+    end
+  rescue ActiveRecord::RecordNotFound => e
+    render json: { success: false, error: "Puzzle or clue not found" }
+  rescue => e
+    render json: { success: false, error: e.message }
+  end
+
   private
 
     def load_puzzle

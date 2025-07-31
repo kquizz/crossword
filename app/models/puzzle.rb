@@ -1,4 +1,8 @@
 class Puzzle < ApplicationRecord
+  # Associations
+  has_many :puzzle_clues, dependent: :destroy
+  has_many :clues, through: :puzzle_clues
+
   # Enums
   enum :difficulty, { easy: 0, medium: 1, hard: 2, expert: 3 }
 
