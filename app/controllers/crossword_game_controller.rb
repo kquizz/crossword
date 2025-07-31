@@ -1,12 +1,24 @@
 class CrosswordGameController < ApplicationController
+  include CrosswordGameHelper
+
   before_action :load_puzzle, only: [ :play, :update_cell ]
 
   def play
-    @puzzle ||= Puzzle.last # Use the last puzzle (our 5x5 test puzzle)
+    if params[:id]
+      @puzzle = Puzzle.find(params[:id])
+    else
+      @puzzle = Puzzle.last # Fallback to last puzzle if no ID provided
+    end
+
     if @puzzle
-      @grid = @puzzle.grid("play")
+      @grid = @puzzle.grid("play")  # This is the blank grid for user input
+      @solution_grid = @puzzle.solution_grid  # This is needed for numbering calculation
+      @clues = load_puzzle_clues(@puzzle)
+      Rails.logger.info "🎯 Loaded #{@clues[:across].length} across clues and #{@clues[:down].length} down clues for puzzle #{@puzzle.id}: '#{@puzzle.title}'"
     else
       @grid = generate_empty_grid(15, 15)
+      @solution_grid = generate_empty_grid(15, 15)
+      @clues = { across: [], down: [] }
     end
     @mode = "play"
   end
@@ -93,6 +105,45 @@ class CrosswordGameController < ApplicationController
   end
 
   private
+
+    def load_puzzle_clues(puzzle)
+      clues = { across: [], down: [] }
+
+      # Get grid numbering to find clue positions
+      grid = puzzle.solution_grid
+      numbering = calculate_grid_numbering(grid)
+
+      puzzle.puzzle_clues.includes(:clue).order(:number).each do |puzzle_clue|
+        # Find the position of this clue number in the grid
+        position = find_clue_position(numbering, puzzle_clue.number)
+        next unless position
+
+        clue_data = {
+          number: puzzle_clue.number,
+          clue: puzzle_clue.clue.clue_text,
+          answer: puzzle_clue.clue.answer,
+          row: position[:row],
+          col: position[:col]
+        }
+
+        if puzzle_clue.direction == "across"
+          clues[:across] << clue_data
+        else
+          clues[:down] << clue_data
+        end
+      end
+
+      clues
+    end
+
+    def find_clue_position(numbering, clue_number)
+      numbering.each do |position, number|
+        if number == clue_number
+          return { row: position[0], col: position[1] }
+        end
+      end
+      nil
+    end
 
     def load_puzzle
       @puzzle = Puzzle.find(params[:id]) if params[:id]

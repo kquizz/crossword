@@ -98,7 +98,7 @@
              data-grid="<%= @grid.is_a?(Array) ? @grid.to_json : '[]' %>"
              style="grid-template-columns: repeat(<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>, 1fr);">
           <% if @grid.is_a?(Array) %>
-            <% numbering = calculate_grid_numbering(@grid) %>
+            <% numbering = calculate_grid_numbering(@solution_grid || @grid) %>
             <% @grid.each_with_index do |row, row_index| %>
               <% row.each_with_index do |cell, col_index| %>
                 <div class="crossword-cell interactive <%= 'blocked' if cell == '#' %>"
@@ -164,38 +164,88 @@
       </div>
     </div> <!-- End create-layout -->
   <% else %>
-    <div class="crossword-interactive-grid"
-         data-mode="<%= @mode %>"
-         data-puzzle-id="<%= @puzzle&.id %>"
-         data-grid="<%= @grid.is_a?(Array) ? @grid.to_json : '[]' %>"
-         style="grid-template-columns: repeat(<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>, 1fr);">
-      <% if @grid.is_a?(Array) %>
-        <% numbering = calculate_grid_numbering(@grid) %>
-        <% @grid.each_with_index do |row, row_index| %>
-          <% row.each_with_index do |cell, col_index| %>
-            <div class="crossword-cell interactive <%= 'blocked' if cell == '#' %>"
-                 data-row="<%= row_index %>"
-                 data-col="<%= col_index %>"
-                 tabindex="0"
-                 <%= 'style="background-color: #000 !important; color: transparent !important;"'.html_safe if cell == '#' %>>
-              <% if numbering[[row_index, col_index]] %>
-                <span class="cell-number"><%= numbering[[row_index, col_index]] %></span>
+    <div class="play-layout">
+      <div class="clues-panel">
+        <div class="clues-section">
+          <h4>Across</h4>
+          <!-- Debug: <%= @clues.inspect %> -->
+          <!-- Debug: Across count: <%= @clues[:across]&.length || 'nil' %> -->
+          <div class="clue-list" id="across-clues-list">
+            <% if @clues[:across].any? %>
+              <% @clues[:across].each do |clue| %>
+                <div class="clue-item" data-direction="across" data-number="<%= clue[:number] %>" data-row="<%= clue[:row] %>" data-col="<%= clue[:col] %>">
+                  <span class="clue-number"><%= clue[:number] %></span>
+                  <span class="clue-text"><%= clue[:clue] %></span>
+                  <span class="clue-length">(<%= clue[:answer].length %> letters)</span>
+                </div>
               <% end %>
-              <% if cell && cell != '#' %>
-                <span class="cell-letter"><%= cell %></span>
-              <% elsif cell == '#' %>
-                <!-- Blocked cell - no content -->
+            <% else %>
+              <p class="no-clues">No across clues available</p>
+            <% end %>
+          </div>
+        </div>
+        
+        <div class="clues-section">
+          <h4>Down</h4>
+          <div class="clue-list" id="down-clues-list">
+            <% if @clues[:down].any? %>
+              <% @clues[:down].each do |clue| %>
+                <div class="clue-item" data-direction="down" data-number="<%= clue[:number] %>" data-row="<%= clue[:row] %>" data-col="<%= clue[:col] %>">
+                  <span class="clue-number"><%= clue[:number] %></span>
+                  <span class="clue-text"><%= clue[:clue] %></span>
+                  <span class="clue-length">(<%= clue[:answer].length %> letters)</span>
+                </div>
               <% end %>
+            <% else %>
+              <p class="no-clues">No down clues available</p>
+            <% end %>
+          </div>
+        </div>
+      </div>
+      
+      <div class="grid-container">
+        <div class="crossword-interactive-grid"
+             data-mode="<%= @mode %>"
+             data-puzzle-id="<%= @puzzle&.id %>"
+             data-grid="<%= @grid.is_a?(Array) ? @grid.to_json : '[]' %>"
+             data-clues="<%= @clues.to_json %>"
+             style="grid-template-columns: repeat(<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>, 1fr);">
+          <% if @grid.is_a?(Array) %>
+            <% numbering = calculate_grid_numbering(@solution_grid || @grid) %>
+            <% @grid.each_with_index do |row, row_index| %>
+              <% row.each_with_index do |cell, col_index| %>
+                <div class="crossword-cell interactive <%= 'blocked' if cell == '#' %>"
+                     data-row="<%= row_index %>"
+                     data-col="<%= col_index %>"
+                     tabindex="0"
+                     <%= 'style="background-color: #000 !important; color: transparent !important;"'.html_safe if cell == '#' %>>
+                  <% if numbering[[row_index, col_index]] %>
+                    <span class="cell-number"><%= numbering[[row_index, col_index]] %></span>
+                  <% end %>
+                  <% if cell && cell != '#' %>
+                    <span class="cell-letter"><%= cell %></span>
+                  <% elsif cell == '#' %>
+                    <!-- Blocked cell - no content -->
+                  <% end %>
+                </div>
+              <% end %>
+            <% end %>
+          <% else %>
+            <div class="error-message">
+              Error: Grid data is not an array. Type: <%= @grid.class %>, Value: <%= @grid.inspect %>
             </div>
           <% end %>
-        <% end %>
-      <% else %>
-        <div class="error-message">
-          Error: Grid data is not an array. Type: <%= @grid.class %>, Value: <%= @grid.inspect %>
         </div>
-      <% end %>
+      </div>
+      
+      <div class="current-clue-panel">
+        <div class="current-clue-display">
+          <h5 id="current-clue-title">Select a word</h5>
+          <p id="current-clue-text">Click on a numbered square to see the clue</p>
+        </div>
+      </div>
     </div>
-
+    
     <div class="game-info">
       <% if @puzzle %>
         <div class="puzzle-details">
@@ -208,7 +258,6 @@
         </div>
       <% end %>
     </div>
-    </div> <!-- End game-layout -->
   <% end %>
 </div>
 
@@ -243,6 +292,105 @@
   align-items: start;
   margin-top: 2rem;
   max-width: 100%;
+}
+
+.play-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 2rem;
+  align-items: start;
+  margin-top: 2rem;
+  max-width: 100%;
+}
+
+.clues-panel {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-height: 600px;
+  overflow-y: auto;
+  position: sticky;
+  top: 2rem;
+}
+
+.clues-section {
+  margin-bottom: 2rem;
+}
+
+.clues-section:last-child {
+  margin-bottom: 0;
+}
+
+.clues-section h4 {
+  margin: 0 0 1rem 0;
+  color: #495057;
+  font-size: 1.1rem;
+  border-bottom: 2px solid #dee2e6;
+  padding-bottom: 0.5rem;
+}
+
+.clue-item {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.clue-item:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
+}
+
+.clue-item.active {
+  border-color: #0d6efd;
+  background: #e7f3ff;
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
+}
+
+.clue-number {
+  font-weight: bold;
+  color: #0d6efd;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.clue-text {
+  flex: 1;
+  color: #212529;
+}
+
+.clue-length {
+  color: #6c757d;
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.current-clue-panel {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 1.5rem;
+  position: sticky;
+  top: 2rem;
+}
+
+.current-clue-display h5 {
+  margin: 0 0 0.5rem 0;
+  color: #856404;
+  font-size: 1.1rem;
+}
+
+.current-clue-display p {
+  margin: 0;
+  color: #664d03;
 }
 
 .grid-container {

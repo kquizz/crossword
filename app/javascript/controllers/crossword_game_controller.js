@@ -16,8 +16,15 @@ export default class extends Controller {
     this.highlightedCells = []
     this.usedClueIds = new Set() // Track used clue IDs to prevent duplicates
     this.appliedClues = new Map() // Track which clues are applied to which word positions
+    this.cluesData = null // Store clues data
+    this.currentClue = null // Track current active clue
     this.initializeGrid()
     this.bindEvents()
+    
+    // Load clues data for play mode
+    if (this.modeValue === 'play') {
+      this.loadCluesData()
+    }
     
     // Initialize the clues preview
     if (this.modeValue === 'create') {
@@ -33,7 +40,7 @@ export default class extends Controller {
       this.gridHeight = this.gridData.length
       this.gridWidth = this.gridData[0]?.length || 15
 
-      // Set initial cell sizes based on grid dimensions
+      // Apply automatic sizing for optimal viewing
       this.applyZoom()
       this.updateGridDisplay()
     }
@@ -45,6 +52,11 @@ export default class extends Controller {
 
     // Cell click events
     this.element.addEventListener('click', this.handleCellClick.bind(this))
+
+    // Clue click events for play mode
+    if (this.modeValue === 'play') {
+      this.element.addEventListener('click', this.handleClueClick.bind(this))
+    }
 
     // Mode toggle button
     const toggleBtn = this.element.querySelector('#toggle-mode-btn')
@@ -436,7 +448,10 @@ export default class extends Controller {
     this.updateGridData()
     
     // Recalculate numbering since blocking/unblocking affects word starts
-    this.updateNumbering()
+    // Only do this in create mode
+    if (this.modeValue === 'create') {
+      this.updateNumbering()
+    }
   }
 
   updateCellDisplay(row, col) {
@@ -470,11 +485,18 @@ export default class extends Controller {
         this.updateCellDisplay(row, col)
       }
     }
-    // Update numbering after updating cell displays
-    this.updateNumbering()
+    // Only update numbering in create mode, not play mode
+    if (this.modeValue === 'create') {
+      this.updateNumbering()
+    }
   }
 
   updateNumbering() {
+    // Don't update numbering in play mode - it should be fixed based on puzzle structure
+    if (this.modeValue === 'play') {
+      return
+    }
+    
     // Calculate new numbering based on current grid state
     const numbering = this.calculateGridNumbering(this.gridData)
     
@@ -711,7 +733,7 @@ export default class extends Controller {
   }
 
   getCellElement(row, col) {
-    return this.element.querySelector(`[data-row="${row}"][data-col="${col}"]`)
+    return this.element.querySelector(`.crossword-cell[data-row="${row}"][data-col="${col}"]`)
   }
 
   isValidPosition(row, col) {
@@ -872,6 +894,7 @@ export default class extends Controller {
         const constraint = {
           position: index, // Position within the current word (0-based)
           intersecting_direction: intersectingWordInfo.direction,
+          intersecting_number: intersectingWordInfo.number,
           intersecting_pattern: intersectingWordInfo.pattern,
           intersecting_position: intersectingWordInfo.intersectionPosition
         }
@@ -1253,6 +1276,9 @@ export default class extends Controller {
   }
 
   updateCluesPreview() {
+    // Skip clues preview update in play mode - clues are server-rendered
+    if (this.modeValue === 'play') return
+    
     const acrossList = this.element.querySelector('#across-clues-list')
     const downList = this.element.querySelector('#down-clues-list')
     
@@ -1306,6 +1332,153 @@ export default class extends Controller {
           <span class="clue-number">${clue.number}.</span> ${clue.clueText}
         </div>`
       ).join('')
+    }
+  }
+
+  // New methods for play mode clue functionality
+  loadCluesData() {
+    // In play mode, preserve server-rendered clues and add protection
+    if (this.modeValue === 'play') {
+      this.protectServerRenderedClues()
+      return
+    }
+    
+    // Only try to load clues data from data attributes in create mode
+    const gridElement = this.element.querySelector('.crossword-interactive-grid')
+    if (gridElement && gridElement.dataset.clues) {
+      try {
+        this.cluesData = JSON.parse(gridElement.dataset.clues)
+      } catch (e) {
+        console.error('Failed to parse clues data:', e)
+        this.cluesData = { across: [], down: [] }
+      }
+    }
+  }
+
+  protectServerRenderedClues() {
+    const acrossList = this.element.querySelector('#across-clues-list')
+    const downList = this.element.querySelector('#down-clues-list')
+    
+    if (acrossList && downList) {
+      // Store original innerHTML to prevent it from being cleared
+      const originalAcrossHTML = acrossList.innerHTML
+      const originalDownHTML = downList.innerHTML
+      
+      // Override innerHTML setter to prevent clearing in play mode
+      Object.defineProperty(acrossList, 'innerHTML', {
+        get: function() { return this._innerHTML || originalAcrossHTML },
+        set: function(value) {
+          // Silently ignore attempts to change innerHTML in play mode
+        }
+      })
+      
+      Object.defineProperty(downList, 'innerHTML', {
+        get: function() { return this._innerHTML || originalDownHTML },
+        set: function(value) {
+          // Silently ignore attempts to change innerHTML in play mode
+        }
+      })
+    }
+  }
+
+  handleClueClick(event) {
+    const clueItem = event.target.closest('.clue-item')
+    if (!clueItem) return
+
+    event.preventDefault()
+    
+    const direction = clueItem.dataset.direction
+    const number = parseInt(clueItem.dataset.number)
+    const row = parseInt(clueItem.dataset.row)
+    const col = parseInt(clueItem.dataset.col)
+
+    // Set direction and navigate to the clue's starting cell
+    this.direction = direction
+    this.selectCell(row, col)
+    this.setActiveClue(clueItem, direction, number)
+  }
+
+  setActiveClue(clueItem, direction, number) {
+    // Remove active class from all clue items
+    this.element.querySelectorAll('.clue-item').forEach(item => {
+      item.classList.remove('active')
+    })
+
+    // Add active class to clicked clue
+    clueItem.classList.add('active')
+
+    // Update current clue display
+    const clueText = clueItem.querySelector('.clue-text').textContent
+    const clueLength = clueItem.querySelector('.clue-length').textContent
+    
+    this.updateCurrentClueDisplay(direction, number, clueText, clueLength)
+    this.currentClue = { direction, number, clueText }
+  }
+
+  updateCurrentClueDisplay(direction, number, clueText, clueLength) {
+    const titleElement = this.element.querySelector('#current-clue-title')
+    const textElement = this.element.querySelector('#current-clue-text')
+
+    if (titleElement && textElement) {
+      titleElement.textContent = `${number} ${direction.charAt(0).toUpperCase() + direction.slice(1)}`
+      textElement.textContent = `${clueText} ${clueLength}`
+    }
+  }
+
+  // Override selectCell to also update current clue when cells are clicked
+  selectCell(row, col) {
+    // Call the original selectCell logic
+    if (this.selectedCell) {
+      this.selectedCell.classList.remove('selected')
+    }
+    this.clearHighlights()
+
+    const cell = this.getCellElement(row, col)
+    if (cell && !cell.classList.contains('blocked')) {
+      cell.classList.add('selected')
+      cell.focus()
+      this.selectedCell = cell
+      this.selectedRow = row
+      this.selectedCol = col
+
+      if (!(this.modeValue === 'create' && this.isBlockMode)) {
+        this.highlightCurrentWord(row, col)
+        this.updateDirectionIndicator()
+        
+        // For play mode, update current clue display
+        if (this.modeValue === 'play') {
+          this.updateCurrentClueFromPosition(row, col)
+        } else {
+          // Show matching clues for the current word in create mode
+          this.updateCluesSuggestions(row, col)
+        }
+      }
+    }
+  }
+
+  updateCurrentClueFromPosition(row, col) {
+    if (!this.cluesData) return
+
+    // Find the clue that matches the current position and direction
+    const clues = this.cluesData[this.direction] || []
+    const matchingClue = clues.find(clue => {
+      if (this.direction === 'across') {
+        return clue.row === row && clue.col <= col && 
+               col < clue.col + clue.answer.length
+      } else {
+        return clue.col === col && clue.row <= row && 
+               row < clue.row + clue.answer.length
+      }
+    })
+
+    if (matchingClue) {
+      // Find and activate the corresponding clue item
+      const clueItem = this.element.querySelector(
+        `.clue-item[data-direction="${this.direction}"][data-number="${matchingClue.number}"]`
+      )
+      if (clueItem) {
+        this.setActiveClue(clueItem, this.direction, matchingClue.number)
+      }
     }
   }
 }

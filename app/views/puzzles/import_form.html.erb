@@ -1,0 +1,47 @@
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h3>Import Crossword Puzzle (.puz)</h3>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">
+            Upload a .puz file to import a crossword puzzle. The .puz format is the standard format 
+            used by most crossword software and puzzle publications.
+          </p>
+
+          <%= form_with url: import_puz_puzzles_path, multipart: true, local: true, class: "mt-4" do |form| %>
+            <div class="mb-3">
+              <%= form.label :puz_file, "Select .puz file:", class: "form-label" %>
+              <%= form.file_field :puz_file, 
+                    accept: ".puz", 
+                    required: true, 
+                    class: "form-control" %>
+              <div class="form-text">
+                Only .puz files are supported. Maximum file size: 10MB.
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <%= form.submit "Import Puzzle", class: "btn btn-primary" %>
+              <%= link_to "Cancel", puzzles_path, class: "btn btn-outline-secondary" %>
+            </div>
+          <% end %>
+
+          <hr class="my-4">
+
+          <div class="alert alert-info">
+            <h6><strong>About .puz files:</strong></h6>
+            <ul class="mb-0">
+              <li>Created by Across Lite and used by most crossword software</li>
+              <li>Contains the complete puzzle: grid, clues, title, and author information</li>
+              <li>Imported puzzles will be saved as unpublished drafts</li>
+              <li>Clues from imported puzzles will be added to your clue database</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

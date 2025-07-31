@@ -10,7 +10,15 @@ Rails.application.routes.draw do
   post "crossword_game/save_puzzle_clue", to: "crossword_game#save_puzzle_clue"
   patch "crossword_game/update_cell", to: "crossword_game#update_cell"
 
-  resources :puzzles
+  resources :puzzles do
+    member do
+      get :export_puz
+    end
+    collection do
+      get :import_form
+      post :import_puz
+    end
+  end
   resources :clues do
     collection do
       post :search
