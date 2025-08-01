@@ -15,41 +15,12 @@ module CrosswordGameHelper
   end
 
   def calculate_grid_numbering(grid)
-    return {} if grid.nil? || grid.empty?
-
-    numbering = {}
-    current_number = 1
-    height = grid.length
-    width = grid.first&.length || 0
-
-    grid.each_with_index do |row, row_index|
-      row.each_with_index do |cell, col_index|
-        next if cell == "#" || cell.nil?
-
-        should_number = false
-
-        # Check if this is the start of an across word
-        if starts_across_word?(grid, row_index, col_index, width)
-          should_number = true
-        end
-
-        # Check if this is the start of a down word
-        if starts_down_word?(grid, row_index, col_index, height)
-          should_number = true
-        end
-
-        if should_number
-          numbering[[ row_index, col_index ]] = current_number
-          current_number += 1
-        end
-      end
-    end
-
-    numbering
+    GridNumberingService.calculate(grid)
   end
 
   private
 
+    # Keep these helper methods for backward compatibility if needed elsewhere
     def starts_across_word?(grid, row, col, width)
       # Must not be a blocked cell
       return false if grid[row][col] == "#" || grid[row][col].nil?

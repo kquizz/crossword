@@ -315,10 +315,20 @@ export default class extends Controller {
         break
       case 'Tab':
         event.preventDefault()
-        if (event.shiftKey) {
-          this.moveToPreviousWord()
+        if (this.modeValue === 'play') {
+          // In play mode, use unfilled word navigation
+          if (event.shiftKey) {
+            this.moveToPreviousUnfilledWord()
+          } else {
+            this.moveToNextUnfilledWord()
+          }
         } else {
-          this.moveToNextWord()
+          // In create mode, use basic word navigation
+          if (event.shiftKey) {
+            this.moveToPreviousWord()
+          } else {
+            this.moveToNextWord()
+          }
         }
         break
       default:
@@ -383,34 +393,63 @@ export default class extends Controller {
   }
 
   moveToNextWord() {
-    // Implementation for moving to next word would go here
-    // For now, just move in current direction until we hit a blocked cell
-    const row = this.selectedRow
-    const col = this.selectedCol
-
-    if (this.direction === 'across') {
-      // Find end of current word, then next word start
-      let nextCol = col
-      while (nextCol < this.gridWidth && !this.isCellBlocked(row, nextCol)) {
-        nextCol++
+    const currentRow = this.selectedRow
+    const currentCol = this.selectedCol
+    
+    // Find the next word start anywhere in the grid
+    let foundNextWord = false
+    
+    // Start searching from current position
+    for (let row = 0; row < this.gridHeight; row++) {
+      for (let col = 0; col < this.gridWidth; col++) {
+        // Skip positions before current position
+        if (row < currentRow || (row === currentRow && col <= currentCol)) {
+          continue
+        }
+        
+        // Check if this position starts a word in the current direction
+        if (this.isWordStart(row, col, this.direction)) {
+          this.selectCell(row, col)
+          foundNextWord = true
+          break
+        }
       }
-      while (nextCol < this.gridWidth && this.isCellBlocked(row, nextCol)) {
-        nextCol++
+      if (foundNextWord) break
+    }
+    
+    // If no word found after current position, wrap around from beginning
+    if (!foundNextWord) {
+      for (let row = 0; row < this.gridHeight; row++) {
+        for (let col = 0; col < this.gridWidth; col++) {
+          // Skip positions after current position (we already checked those)
+          if (row > currentRow || (row === currentRow && col >= currentCol)) {
+            continue
+          }
+          
+          // Check if this position starts a word in the current direction
+          if (this.isWordStart(row, col, this.direction)) {
+            this.selectCell(row, col)
+            foundNextWord = true
+            break
+          }
+        }
+        if (foundNextWord) break
       }
-      if (nextCol < this.gridWidth) {
-        this.selectCell(row, nextCol)
-      }
-    } else {
-      // Find end of current word, then next word start
-      let nextRow = row
-      while (nextRow < this.gridHeight && !this.isCellBlocked(nextRow, col)) {
-        nextRow++
-      }
-      while (nextRow < this.gridHeight && this.isCellBlocked(nextRow, col)) {
-        nextRow++
-      }
-      if (nextRow < this.gridHeight) {
-        this.selectCell(nextRow, col)
+    }
+    
+    // If still no word found, try switching direction
+    if (!foundNextWord) {
+      const oppositeDirection = this.direction === 'across' ? 'down' : 'across'
+      for (let row = 0; row < this.gridHeight; row++) {
+        for (let col = 0; col < this.gridWidth; col++) {
+          if (this.isWordStart(row, col, oppositeDirection)) {
+            this.direction = oppositeDirection
+            this.selectCell(row, col)
+            foundNextWord = true
+            break
+          }
+        }
+        if (foundNextWord) break
       }
     }
   }
@@ -520,6 +559,52 @@ export default class extends Controller {
     this.moveInDirection(this.selectedRow, this.selectedCol, false)
   }
 
+  moveToPreviousUnfilledWord() {
+    const currentNumber = this.getCurrentWordNumber()
+    if (!currentNumber) {
+      // Fallback to normal movement if we can't determine word number
+      this.moveInDirection(this.selectedRow, this.selectedCol, true) // Move backward
+      return
+    }
+
+    console.log(`Looking for previous unfilled word before ${currentNumber} in ${this.direction} direction`)
+
+    // First try to find the previous unfilled word in the current direction
+    const prevWordInDirection = this.findPreviousUnfilledWord(currentNumber, this.direction)
+    if (prevWordInDirection) {
+      console.log(`Found previous unfilled word: ${prevWordInDirection.number} ${prevWordInDirection.direction}`)
+      this.direction = prevWordInDirection.direction
+      this.selectCell(prevWordInDirection.row, prevWordInDirection.col)
+      return
+    }
+
+    console.log(`No unfilled words in ${this.direction}, switching directions`)
+
+    // If no unfilled words in current direction, switch directions and start from the end
+    const oppositeDirection = this.direction === 'across' ? 'down' : 'across'
+    const prevWordInOpposite = this.findPreviousUnfilledWord(Number.MAX_SAFE_INTEGER, oppositeDirection) // Start from end
+    if (prevWordInOpposite) {
+      console.log(`Found unfilled word in opposite direction: ${prevWordInOpposite.number} ${prevWordInOpposite.direction}`)
+      const oldDirection = this.direction
+      this.direction = prevWordInOpposite.direction
+      console.log(`Direction switched from ${oldDirection} to ${this.direction}`)
+      
+      // Select the cell and force a clue update
+      this.selectCell(prevWordInOpposite.row, prevWordInOpposite.col)
+      
+      // Force update the clue highlighting after direction change
+      setTimeout(() => {
+        this.updateCurrentClueFromPosition(prevWordInOpposite.row, prevWordInOpposite.col)
+      }, 10)
+      
+      return
+    }
+
+    console.log('No unfilled words found, using normal movement')
+    // If no unfilled words found anywhere, just move normally
+    this.moveInDirection(this.selectedRow, this.selectedCol, true) // Move backward
+  }
+
   // Get the number of the current word
   getCurrentWordNumber() {
     const numbering = this.calculateGridNumbering(this.gridData)
@@ -557,6 +642,31 @@ export default class extends Controller {
     return null
   }
 
+  findPreviousUnfilledWord(startNumber, direction) {
+    if (!this.cluesData || !this.cluesData[direction]) {
+      return null
+    }
+
+    const clues = this.cluesData[direction]
+    const sortedClues = [...clues].sort((a, b) => b.number - a.number) // Sort in descending order
+
+    // First, try to find words with numbers lower than startNumber
+    for (const clue of sortedClues) {
+      if (clue.number < startNumber && !this.isClueWordComplete(clue)) {
+        return { row: clue.row, col: clue.col, direction, number: clue.number }
+      }
+    }
+
+    // If no lower numbers found, loop back from the end
+    for (const clue of sortedClues) {
+      if (clue.number >= startNumber && !this.isClueWordComplete(clue)) {
+        return { row: clue.row, col: clue.col, direction, number: clue.number }
+      }
+    }
+
+    return null
+  }
+
   // Check if a specific clue's word is completely filled
   isClueWordComplete(clue) {
     if (clue.direction === 'across') {
@@ -580,43 +690,63 @@ export default class extends Controller {
   }
 
   moveToPreviousWord() {
-    // Move to the previous word in the current direction
-    const row = this.selectedRow
-    const col = this.selectedCol
-
-    if (this.direction === 'across') {
-      // Find start of current word, then previous word start
-      let prevCol = col
-      while (prevCol >= 0 && !this.isCellBlocked(row, prevCol)) {
-        prevCol--
-      }
-      while (prevCol >= 0 && this.isCellBlocked(row, prevCol)) {
-        prevCol--
-      }
-      if (prevCol >= 0) {
-        // Now find the start of the previous word
-        while (prevCol >= 0 && !this.isCellBlocked(row, prevCol)) {
-          prevCol--
+    const currentRow = this.selectedRow
+    const currentCol = this.selectedCol
+    
+    // Find the previous word start anywhere in the grid (search backwards)
+    let foundPrevWord = false
+    
+    // Start searching backwards from current position
+    for (let row = this.gridHeight - 1; row >= 0; row--) {
+      for (let col = this.gridWidth - 1; col >= 0; col--) {
+        // Skip positions after current position
+        if (row > currentRow || (row === currentRow && col >= currentCol)) {
+          continue
         }
-        prevCol++ // Move back to the first non-blocked cell
-        this.selectCell(row, prevCol)
-      }
-    } else {
-      // Find start of current word, then previous word start
-      let prevRow = row
-      while (prevRow >= 0 && !this.isCellBlocked(prevRow, col)) {
-        prevRow--
-      }
-      while (prevRow >= 0 && this.isCellBlocked(prevRow, col)) {
-        prevRow--
-      }
-      if (prevRow >= 0) {
-        // Now find the start of the previous word
-        while (prevRow >= 0 && !this.isCellBlocked(prevRow, col)) {
-          prevRow--
+        
+        // Check if this position starts a word in the current direction
+        if (this.isWordStart(row, col, this.direction)) {
+          this.selectCell(row, col)
+          foundPrevWord = true
+          break
         }
-        prevRow++ // Move back to the first non-blocked cell
-        this.selectCell(prevRow, col)
+      }
+      if (foundPrevWord) break
+    }
+    
+    // If no word found before current position, wrap around from end
+    if (!foundPrevWord) {
+      for (let row = this.gridHeight - 1; row >= 0; row--) {
+        for (let col = this.gridWidth - 1; col >= 0; col--) {
+          // Skip positions before current position (we already checked those)
+          if (row < currentRow || (row === currentRow && col <= currentCol)) {
+            continue
+          }
+          
+          // Check if this position starts a word in the current direction
+          if (this.isWordStart(row, col, this.direction)) {
+            this.selectCell(row, col)
+            foundPrevWord = true
+            break
+          }
+        }
+        if (foundPrevWord) break
+      }
+    }
+    
+    // If still no word found, try switching direction
+    if (!foundPrevWord) {
+      const oppositeDirection = this.direction === 'across' ? 'down' : 'across'
+      for (let row = this.gridHeight - 1; row >= 0; row--) {
+        for (let col = this.gridWidth - 1; col >= 0; col--) {
+          if (this.isWordStart(row, col, oppositeDirection)) {
+            this.direction = oppositeDirection
+            this.selectCell(row, col)
+            foundPrevWord = true
+            break
+          }
+        }
+        if (foundPrevWord) break
       }
     }
   }
@@ -624,6 +754,28 @@ export default class extends Controller {
   moveSelection(newRow, newCol) {
     if (this.isValidPosition(newRow, newCol)) {
       this.selectCell(newRow, newCol)
+    }
+  }
+
+  // Helper method to check if a position starts a word in the given direction
+  isWordStart(row, col, direction) {
+    // Cell must not be blocked
+    if (this.isCellBlocked(row, col)) {
+      return false
+    }
+
+    if (direction === 'across') {
+      // For across words: either at left edge OR previous cell is blocked
+      const prevCellBlocked = col === 0 || this.isCellBlocked(row, col - 1)
+      // And there must be at least one more cell to the right that's not blocked
+      const hasNextCell = col < this.gridWidth - 1 && !this.isCellBlocked(row, col + 1)
+      return prevCellBlocked && hasNextCell
+    } else {
+      // For down words: either at top edge OR cell above is blocked
+      const prevCellBlocked = row === 0 || this.isCellBlocked(row - 1, col)
+      // And there must be at least one more cell below that's not blocked
+      const hasNextCell = row < this.gridHeight - 1 && !this.isCellBlocked(row + 1, col)
+      return prevCellBlocked && hasNextCell
     }
   }
 

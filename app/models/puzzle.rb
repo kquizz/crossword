@@ -59,10 +59,7 @@ class Puzzle < ApplicationRecord
   # Calculate crossword numbering for clues
   def calculate_numbering
     return {} if solution_grid.empty?
-
-    # Use the helper method from CrosswordGameHelper
-    helper = Object.new.extend(CrosswordGameHelper)
-    helper.calculate_grid_numbering(solution_grid)
+    GridNumberingService.calculate(solution_grid)
   end
 
   # Grid method for interactive UI - returns blank grid for playing, solution grid for editing
