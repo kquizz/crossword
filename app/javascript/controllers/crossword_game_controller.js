@@ -85,6 +85,34 @@ export default class extends Controller {
     if (resetZoomBtn) {
       resetZoomBtn.addEventListener('click', this.resetZoom.bind(this))
     }
+
+    // Play mode specific buttons
+    if (this.modeValue === 'play') {
+      const checkPuzzleBtn = this.element.querySelector('#check-puzzle-btn')
+      if (checkPuzzleBtn) {
+        checkPuzzleBtn.addEventListener('click', this.checkPuzzle.bind(this))
+      }
+
+      const checkWordBtn = this.element.querySelector('#check-word-btn')
+      if (checkWordBtn) {
+        checkWordBtn.addEventListener('click', this.checkWord.bind(this))
+      }
+
+      const revealLetterBtn = this.element.querySelector('#reveal-letter-btn')
+      if (revealLetterBtn) {
+        revealLetterBtn.addEventListener('click', this.revealLetter.bind(this))
+      }
+
+      const revealWordBtn = this.element.querySelector('#reveal-word-btn')
+      if (revealWordBtn) {
+        revealWordBtn.addEventListener('click', this.revealWord.bind(this))
+      }
+
+      const resetPuzzleBtn = this.element.querySelector('#reset-puzzle-btn')
+      if (resetPuzzleBtn) {
+        resetPuzzleBtn.addEventListener('click', this.resetPuzzle.bind(this))
+      }
+    }
   }
 
   handleCellClick(event) {
@@ -297,7 +325,13 @@ export default class extends Controller {
         if (event.key.match(/^[a-zA-Z]$/)) {
           event.preventDefault()
           this.setCellValue(row, col, event.key.toUpperCase())
-          this.moveInDirection(row, col, false) // Move forward
+          
+          // In play mode, check if we've completed a word and should auto-advance
+          if (this.modeValue === 'play' && this.isWordComplete(row, col)) {
+            this.moveToNextUnfilledWord()
+          } else {
+            this.moveInDirection(row, col, false) // Move forward normally
+          }
         }
     }
   }
@@ -313,8 +347,13 @@ export default class extends Controller {
     this.highlightCurrentWord(this.selectedRow, this.selectedCol)
     this.updateDirectionIndicator()
     
-    // Update clue suggestions for the new direction
-    if (this.selectedRow !== undefined && this.selectedCol !== undefined) {
+    // Update clue highlighting for the new direction in play mode
+    if (this.modeValue === 'play' && this.selectedRow !== undefined && this.selectedCol !== undefined) {
+      this.updateCurrentClueFromPosition(this.selectedRow, this.selectedCol)
+    }
+    
+    // Update clue suggestions for the new direction in create mode
+    if (this.modeValue === 'create' && this.selectedRow !== undefined && this.selectedCol !== undefined) {
       this.updateCluesSuggestions(this.selectedRow, this.selectedCol)
     }
   }
@@ -376,6 +415,170 @@ export default class extends Controller {
     }
   }
 
+  // Check if the current word is completely filled after typing in a cell
+  isWordComplete(row, col) {
+    const wordBounds = this.getCurrentWordBounds(row, col)
+    if (!wordBounds) return false
+
+    // Check if all cells in the word are filled
+    if (this.direction === 'across') {
+      for (let c = wordBounds.startCol; c <= wordBounds.endCol; c++) {
+        if (!this.gridData[row][c] || this.gridData[row][c] === '#') {
+          return false
+        }
+      }
+    } else {
+      for (let r = wordBounds.startRow; r <= wordBounds.endRow; r++) {
+        if (!this.gridData[r][col] || this.gridData[r][col] === '#') {
+          return false
+        }
+      }
+    }
+    return true
+  }
+
+  // Get the bounds of the current word
+  getCurrentWordBounds(row, col) {
+    if (this.direction === 'across') {
+      // Find start and end of across word
+      let startCol = col
+      while (startCol > 0 && !this.isCellBlocked(row, startCol - 1)) {
+        startCol--
+      }
+      let endCol = col
+      while (endCol < this.gridWidth - 1 && !this.isCellBlocked(row, endCol + 1)) {
+        endCol++
+      }
+      
+      // Only return bounds if it's a valid word (more than 1 letter)
+      if (endCol > startCol) {
+        return { startRow: row, endRow: row, startCol, endCol }
+      }
+    } else {
+      // Find start and end of down word
+      let startRow = row
+      while (startRow > 0 && !this.isCellBlocked(startRow - 1, col)) {
+        startRow--
+      }
+      let endRow = row
+      while (endRow < this.gridHeight - 1 && !this.isCellBlocked(endRow + 1, col)) {
+        endRow++
+      }
+      
+      // Only return bounds if it's a valid word (more than 1 letter)
+      if (endRow > startRow) {
+        return { startRow, endRow, startCol: col, endCol: col }
+      }
+    }
+    return null
+  }
+
+  // Move to the next unfilled word in the current direction, or switch directions
+  moveToNextUnfilledWord() {
+    const currentNumber = this.getCurrentWordNumber()
+    if (!currentNumber) {
+      // Fallback to normal movement if we can't determine word number
+      this.moveInDirection(this.selectedRow, this.selectedCol, false)
+      return
+    }
+
+    console.log(`Looking for next unfilled word after ${currentNumber} in ${this.direction} direction`)
+
+    // First try to find the next unfilled word in the current direction
+    const nextWordInDirection = this.findNextUnfilledWord(currentNumber, this.direction)
+    if (nextWordInDirection) {
+      console.log(`Found next unfilled word: ${nextWordInDirection.number} ${nextWordInDirection.direction}`)
+      this.direction = nextWordInDirection.direction
+      this.selectCell(nextWordInDirection.row, nextWordInDirection.col)
+      return
+    }
+
+    console.log(`No unfilled words in ${this.direction}, switching directions`)
+
+    // If no unfilled words in current direction, switch directions
+    const oppositeDirection = this.direction === 'across' ? 'down' : 'across'
+    const nextWordInOpposite = this.findNextUnfilledWord(0, oppositeDirection) // Start from beginning
+    if (nextWordInOpposite) {
+      console.log(`Found unfilled word in opposite direction: ${nextWordInOpposite.number} ${nextWordInOpposite.direction}`)
+      const oldDirection = this.direction
+      this.direction = nextWordInOpposite.direction
+      console.log(`Direction switched from ${oldDirection} to ${this.direction}`)
+      
+      // Select the cell and force a clue update
+      this.selectCell(nextWordInOpposite.row, nextWordInOpposite.col)
+      
+      // Force update the clue highlighting after direction change
+      setTimeout(() => {
+        this.updateCurrentClueFromPosition(nextWordInOpposite.row, nextWordInOpposite.col)
+      }, 10)
+      
+      return
+    }
+
+    console.log('No unfilled words found, using normal movement')
+    // If no unfilled words found anywhere, just move normally
+    this.moveInDirection(this.selectedRow, this.selectedCol, false)
+  }
+
+  // Get the number of the current word
+  getCurrentWordNumber() {
+    const numbering = this.calculateGridNumbering(this.gridData)
+    const wordBounds = this.getCurrentWordBounds(this.selectedRow, this.selectedCol)
+    if (!wordBounds) return null
+
+    // For both across and down, we want the starting position of the word
+    const startKey = `${wordBounds.startRow},${wordBounds.startCol}`
+    return numbering[startKey] || null
+  }
+
+  // Find the next unfilled word starting from a given number
+  findNextUnfilledWord(startNumber, direction) {
+    if (!this.cluesData || !this.cluesData[direction]) {
+      return null
+    }
+
+    const clues = this.cluesData[direction]
+    const sortedClues = [...clues].sort((a, b) => a.number - b.number)
+
+    // First, try to find words with numbers higher than startNumber
+    for (const clue of sortedClues) {
+      if (clue.number > startNumber && !this.isClueWordComplete(clue)) {
+        return { row: clue.row, col: clue.col, direction, number: clue.number }
+      }
+    }
+
+    // If no higher numbers found, loop back to the beginning
+    for (const clue of sortedClues) {
+      if (clue.number <= startNumber && !this.isClueWordComplete(clue)) {
+        return { row: clue.row, col: clue.col, direction, number: clue.number }
+      }
+    }
+
+    return null
+  }
+
+  // Check if a specific clue's word is completely filled
+  isClueWordComplete(clue) {
+    if (clue.direction === 'across') {
+      // Check across word
+      for (let i = 0; i < clue.answer.length; i++) {
+        const checkCol = clue.col + i
+        if (checkCol >= this.gridWidth || !this.gridData[clue.row][checkCol]) {
+          return false
+        }
+      }
+    } else {
+      // Check down word  
+      for (let i = 0; i < clue.answer.length; i++) {
+        const checkRow = clue.row + i
+        if (checkRow >= this.gridHeight || !this.gridData[checkRow][clue.col]) {
+          return false
+        }
+      }
+    }
+    return true
+  }
+
   moveToPreviousWord() {
     // Move to the previous word in the current direction
     const row = this.selectedRow
@@ -428,6 +631,13 @@ export default class extends Controller {
     if (!this.isValidPosition(row, col)) return
 
     this.gridData[row][col] = value || null
+    
+    // Clear error highlighting when a new letter is added
+    const cell = this.getCellElement(row, col)
+    if (cell) {
+      cell.classList.remove('error')
+    }
+    
     this.updateCellDisplay(row, col)
     this.updateGridData()
 
@@ -1337,13 +1547,7 @@ export default class extends Controller {
 
   // New methods for play mode clue functionality
   loadCluesData() {
-    // In play mode, preserve server-rendered clues and add protection
-    if (this.modeValue === 'play') {
-      this.protectServerRenderedClues()
-      return
-    }
-    
-    // Only try to load clues data from data attributes in create mode
+    // Load clues data from the grid element's data attribute
     const gridElement = this.element.querySelector('.crossword-interactive-grid')
     if (gridElement && gridElement.dataset.clues) {
       try {
@@ -1352,6 +1556,13 @@ export default class extends Controller {
         console.error('Failed to parse clues data:', e)
         this.cluesData = { across: [], down: [] }
       }
+    } else {
+      this.cluesData = { across: [], down: [] }
+    }
+    
+    // In play mode, also set up protection for server-rendered clues
+    if (this.modeValue === 'play') {
+      this.protectServerRenderedClues()
     }
   }
 
@@ -1407,12 +1618,37 @@ export default class extends Controller {
     // Add active class to clicked clue
     clueItem.classList.add('active')
 
+    // Scroll the clue into view
+    this.scrollClueIntoView(clueItem)
+
     // Update current clue display
     const clueText = clueItem.querySelector('.clue-text').textContent
     const clueLength = clueItem.querySelector('.clue-length').textContent
     
     this.updateCurrentClueDisplay(direction, number, clueText, clueLength)
     this.currentClue = { direction, number, clueText }
+  }
+
+  scrollClueIntoView(clueItem) {
+    // Find the clues panel container
+    const cluesPanel = clueItem.closest('.clues-panel')
+    if (!cluesPanel) return
+
+    // Get the bounds of the clue item and container
+    const clueRect = clueItem.getBoundingClientRect()
+    const panelRect = cluesPanel.getBoundingClientRect()
+
+    // Check if the clue is outside the visible area
+    const isAbove = clueRect.top < panelRect.top
+    const isBelow = clueRect.bottom > panelRect.bottom
+
+    if (isAbove || isBelow) {
+      // Scroll the clue into view with some padding
+      clueItem.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      })
+    }
   }
 
   updateCurrentClueDisplay(direction, number, clueText, clueLength) {
@@ -1480,5 +1716,286 @@ export default class extends Controller {
         this.setActiveClue(clueItem, this.direction, matchingClue.number)
       }
     }
+  }
+
+  // Puzzle validation and hint methods
+  checkPuzzle() {
+    if (!this.cluesData || !this.element.querySelector('.crossword-interactive-grid')) return
+
+    let hasErrors = false
+    const allClues = [...this.cluesData.across, ...this.cluesData.down]
+
+    allClues.forEach(clue => {
+      const isCorrect = this.checkClueWord(clue, false) // Don't highlight, just check
+      if (!isCorrect) {
+        hasErrors = true
+        this.highlightIncorrectClue(clue)
+      }
+    })
+
+    if (!hasErrors) {
+      this.checkForPuzzleCompletion()
+    }
+  }
+
+  checkWord() {
+    if (!this.selectedCell || !this.cluesData) return
+
+    const currentClue = this.getCurrentClueFromPosition(this.selectedRow, this.selectedCol)
+    if (currentClue) {
+      const isCorrect = this.checkClueWord(currentClue, true)
+      if (isCorrect) {
+        this.showMessage('Word is correct! ✓', 'success')
+      } else {
+        this.showMessage('Word has errors ✗', 'error')
+      }
+    }
+  }
+
+  revealLetter() {
+    if (!this.selectedCell || !this.cluesData) return
+
+    const currentClue = this.getCurrentClueFromPosition(this.selectedRow, this.selectedCol)
+    if (currentClue) {
+      const letterIndex = this.getLetterIndexInWord(this.selectedRow, this.selectedCol, currentClue)
+      if (letterIndex !== -1 && letterIndex < currentClue.answer.length) {
+        const correctLetter = currentClue.answer[letterIndex]
+        this.setCellValue(this.selectedRow, this.selectedCol, correctLetter)
+        this.clearCellError(this.selectedRow, this.selectedCol)
+        this.showMessage(`Revealed: ${correctLetter}`, 'info')
+      }
+    }
+  }
+
+  revealWord() {
+    if (!this.selectedCell || !this.cluesData) return
+
+    const currentClue = this.getCurrentClueFromPosition(this.selectedRow, this.selectedCol)
+    if (currentClue) {
+      if (confirm('Reveal the entire current word?')) {
+        this.fillClueWord(currentClue)
+        this.showMessage(`Revealed: ${currentClue.answer}`, 'info')
+      }
+    }
+  }
+
+  resetPuzzle() {
+    if (confirm('Are you sure you want to reset the entire puzzle? All progress will be lost.')) {
+      // Clear all cells locally first
+      for (let row = 0; row < this.gridHeight; row++) {
+        for (let col = 0; col < this.gridWidth; col++) {
+          if (this.gridData[row][col] !== '#') {
+            this.gridData[row][col] = null
+            this.updateCellDisplay(row, col)
+            this.clearCellError(row, col)
+          }
+        }
+      }
+      
+      // If in play mode, send a bulk reset request to the server
+      if (this.modeValue === 'play' && this.puzzleIdValue) {
+        this.resetPuzzleOnServer()
+      }
+      
+      this.showMessage('Puzzle reset!', 'info')
+    }
+  }
+
+  resetPuzzleOnServer() {
+    fetch('/crossword_game/reset_puzzle', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
+      },
+      body: JSON.stringify({
+        id: this.puzzleIdValue
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (!data.success) {
+        console.error('Failed to reset puzzle:', data.error)
+        this.showMessage('Error resetting puzzle on server', 'error')
+      }
+    })
+    .catch(error => {
+      console.error('Error resetting puzzle:', error)
+      this.showMessage('Error resetting puzzle on server', 'error')
+    })
+  }
+
+  // Helper methods
+  checkClueWord(clue, highlightErrors = true) {
+    let isCorrect = true
+    
+    for (let i = 0; i < clue.answer.length; i++) {
+      let checkRow, checkCol
+      if (clue.direction === 'across') {
+        checkRow = clue.row
+        checkCol = clue.col + i
+      } else {
+        checkRow = clue.row + i
+        checkCol = clue.col
+      }
+
+      const userValue = this.gridData[checkRow][checkCol]
+      const correctValue = clue.answer[i]
+
+      if (userValue !== correctValue) {
+        isCorrect = false
+        if (highlightErrors && userValue) { // Only highlight if there's a user value
+          this.setCellError(checkRow, checkCol)
+        }
+      } else if (userValue === correctValue) {
+        // Clear error if the letter is now correct
+        this.clearCellError(checkRow, checkCol)
+      }
+    }
+
+    return isCorrect
+  }
+
+  highlightIncorrectClue(clue) {
+    for (let i = 0; i < clue.answer.length; i++) {
+      let checkRow, checkCol
+      if (clue.direction === 'across') {
+        checkRow = clue.row
+        checkCol = clue.col + i
+      } else {
+        checkRow = clue.row + i
+        checkCol = clue.col
+      }
+
+      const userValue = this.gridData[checkRow][checkCol]
+      const correctValue = clue.answer[i]
+
+      if (userValue && userValue !== correctValue) {
+        this.setCellError(checkRow, checkCol)
+      }
+    }
+  }
+
+  fillClueWord(clue) {
+    for (let i = 0; i < clue.answer.length; i++) {
+      let fillRow, fillCol
+      if (clue.direction === 'across') {
+        fillRow = clue.row
+        fillCol = clue.col + i
+      } else {
+        fillRow = clue.row + i
+        fillCol = clue.col
+      }
+
+      this.setCellValue(fillRow, fillCol, clue.answer[i])
+      this.clearCellError(fillRow, fillCol)
+    }
+  }
+
+  getCurrentClueFromPosition(row, col) {
+    if (!this.cluesData) return null
+
+    const clues = this.cluesData[this.direction] || []
+    return clues.find(clue => {
+      if (this.direction === 'across') {
+        return clue.row === row && clue.col <= col && col < clue.col + clue.answer.length
+      } else {
+        return clue.col === col && clue.row <= row && row < clue.row + clue.answer.length
+      }
+    })
+  }
+
+  getLetterIndexInWord(row, col, clue) {
+    if (clue.direction === 'across') {
+      return col - clue.col
+    } else {
+      return row - clue.row
+    }
+  }
+
+  setCellError(row, col) {
+    const cell = this.getCellElement(row, col)
+    if (cell) {
+      cell.classList.add('error')
+    }
+  }
+
+  clearCellError(row, col) {
+    const cell = this.getCellElement(row, col)
+    if (cell) {
+      cell.classList.remove('error')
+    }
+  }
+
+  checkForPuzzleCompletion() {
+    if (!this.cluesData) return
+
+    const allClues = [...this.cluesData.across, ...this.cluesData.down]
+    const allCorrect = allClues.every(clue => {
+      for (let i = 0; i < clue.answer.length; i++) {
+        let checkRow, checkCol
+        if (clue.direction === 'across') {
+          checkRow = clue.row
+          checkCol = clue.col + i
+        } else {
+          checkRow = clue.row + i
+          checkCol = clue.col
+        }
+        
+        if (this.gridData[checkRow][checkCol] !== clue.answer[i]) {
+          return false
+        }
+      }
+      return true
+    })
+
+    if (allCorrect) {
+      this.showPuzzleCompletedMessage()
+    }
+  }
+
+  showPuzzleCompletedMessage() {
+    const message = document.createElement('div')
+    message.className = 'puzzle-completed-message'
+    message.innerHTML = `
+      <div class="completion-content">
+        <h2>🎉 Congratulations! 🎉</h2>
+        <p>You've completed the puzzle!</p>
+        <button class="btn btn-primary" onclick="this.parentElement.parentElement.remove()">
+          Continue
+        </button>
+      </div>
+    `
+    
+    // Add to the page
+    document.body.appendChild(message)
+    
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+      if (message.parentElement) {
+        message.remove()
+      }
+    }, 10000)
+  }
+
+  showMessage(text, type = 'info') {
+    const message = document.createElement('div')
+    message.className = `alert alert-${type} puzzle-message`
+    message.textContent = text
+    
+    // Find a good place to show the message
+    const controls = this.element.querySelector('.game-controls')
+    if (controls) {
+      controls.appendChild(message)
+    } else {
+      document.body.appendChild(message)
+    }
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      if (message.parentElement) {
+        message.remove()
+      }
+    }, 3000)
   }
 }

@@ -373,3 +373,84 @@
   font-size: 0.9rem;
   margin-top: 4px;
 }
+
+/* Error state styling for incorrect cells */
+.crossword-cell.error {
+  background-color: #ffebee !important;
+  border-color: #f44336 !important;
+  color: #d32f2f !important;
+}
+
+.crossword-cell.error input {
+  background-color: #ffebee !important;
+  color: #d32f2f !important;
+}
+
+/* Completion message styling */
+.completion-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #4caf50, #66bb6a);
+  color: white;
+  padding: 30px 40px;
+  border-radius: 15px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+  z-index: 1000;
+  animation: celebrationPulse 2s ease-in-out;
+}
+
+@keyframes celebrationPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Play controls styling */
+.play-controls {
+  margin-bottom: 20px;
+}
+
+.play-controls .btn-group {
+  margin-right: 15px;
+  margin-bottom: 10px;
+}
+
+.play-controls .btn {
+  font-size: 14px;
+  padding: 8px 16px;
+}
+
+.play-controls .btn-success {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.play-controls .btn-info {
+  background-color: #17a2b8;
+  border-color: #17a2b8;
+}
+
+.play-controls .btn-warning {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+}
+
+.play-controls .btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}

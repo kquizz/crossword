@@ -1,7 +1,7 @@
 class CrosswordGameController < ApplicationController
   include CrosswordGameHelper
 
-  before_action :load_puzzle, only: [ :play, :update_cell ]
+  before_action :load_puzzle, only: [ :play, :update_cell, :reset_puzzle ]
 
   def play
     if params[:id]
@@ -48,6 +48,37 @@ class CrosswordGameController < ApplicationController
           render json: { success: true, value: value }
         else
           render json: { success: false, error: "Invalid position" }
+        end
+      end
+    end
+  end
+
+  def reset_puzzle
+    respond_to do |format|
+      format.json do
+        if @puzzle
+          # Clear all cells in the blank grid
+          height = @puzzle.height || 15
+          width = @puzzle.width || 15
+          blank_grid = Array.new(height) { Array.new(width) { nil } }
+
+          # Preserve the blocked cells from the solution grid
+          solution_grid = @puzzle.solution_grid
+          if solution_grid
+            height.times do |row|
+              width.times do |col|
+                if solution_grid[row] && solution_grid[row][col] == "#"
+                  blank_grid[row][col] = "#"
+                end
+              end
+            end
+          end
+
+          @puzzle.blank_grid = blank_grid
+          @puzzle.save
+          render json: { success: true }
+        else
+          render json: { success: false, error: "Puzzle not found" }
         end
       end
     end
@@ -122,6 +153,7 @@ class CrosswordGameController < ApplicationController
           number: puzzle_clue.number,
           clue: puzzle_clue.clue.clue_text,
           answer: puzzle_clue.clue.answer,
+          direction: puzzle_clue.direction,
           row: position[:row],
           col: position[:col]
         }
