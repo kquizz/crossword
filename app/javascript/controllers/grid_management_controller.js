@@ -126,16 +126,8 @@ export default class extends Controller {
 
   // Update grid numbering (create mode only)
   updateNumbering(gridData) {
-    // Don't update numbering in play mode - it should be fixed based on puzzle structure
-    if (this.modeValue === 'play') {
-      return
-    }
-    
     // Calculate new numbering based on current grid state
     const numbering = this.calculateGridNumbering(gridData)
-    
-    console.log('Grid data:', gridData)
-    console.log('Calculated numbering:', numbering)
     
     // Clear all existing numbers
     this.element.querySelectorAll('.cell-number').forEach(el => el.remove())
@@ -149,7 +141,6 @@ export default class extends Controller {
         numberSpan.className = 'cell-number'
         numberSpan.textContent = number
         cell.insertBefore(numberSpan, cell.firstChild)
-        console.log(`Added number ${number} to cell (${row}, ${col})`)
       }
     })
   }
@@ -233,6 +224,31 @@ export default class extends Controller {
     // Notify main controller that grid was cleared
     const event = new CustomEvent('grid-cleared', {
       detail: { gridData },
+      bubbles: true
+    })
+    this.element.dispatchEvent(event)
+  }
+
+  // Reset puzzle grid - clear letters but preserve blocked cells
+  resetPuzzleGrid(gridData) {
+    // Clear only letter values, preserve blocks
+    for (let row = 0; row < gridData.length; row++) {
+      for (let col = 0; col < gridData[row].length; col++) {
+        if (gridData[row][col] !== '#') {
+          gridData[row][col] = null
+        }
+      }
+    }
+    
+    this.updateGridDisplay(gridData)
+    
+    // Notify main controller that grid data was updated
+    const event = new CustomEvent('grid-data-updated', {
+      detail: { 
+        gridData,
+        needsNumberingUpdate: false,
+        saveToServer: false
+      },
       bubbles: true
     })
     this.element.dispatchEvent(event)

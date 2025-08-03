@@ -10,71 +10,80 @@ export default class extends Controller {
   }
 
   connect() {
-    this.initializeState()
     this.initializeGrid()
     this.bindEvents()
     
     // Initialize the clues preview
     if (this.modeValue === 'create') {
-      setTimeout(() => this.updateCluesPreview(), 100)
+      setTimeout(() => {
+        this.delegateToController('create-mode-clue-management', 'updateCluesPreview')
+      }, 100)
     }
   }
 
-  // Centralized state management
-  initializeState() {
-    this.state = {
-      // Selection and navigation
-      selectedCell: null,
-      selectedRow: null,
-      selectedCol: null,
-      direction: 'across',
-      
-      // Grid state
-      highlightedCells: [],
-      
-      // Mode state
-      isBlockMode: false,
-      
-      // Clue tracking (create mode)
-      usedClueIds: new Set(),
-      appliedClues: new Map(),
-      
-      // Clue data (play mode)
-      cluesData: null,
-      currentClue: null
-    }
+  // State getters/setters that delegate to mode state management controller
+  get selectedCell() { 
+    const stateController = this.getController('mode-state-management')
+    return stateController ? stateController.getSelectedCell() : null
   }
-
-  // State getters for backward compatibility and cleaner access
-  get selectedCell() { return this.state.selectedCell }
-  set selectedCell(value) { this.state.selectedCell = value }
+  set selectedCell(value) { 
+    const stateController = this.getController('mode-state-management')
+    if (stateController) stateController.setSelectedCell(value)
+  }
   
-  get selectedRow() { return this.state.selectedRow }
-  set selectedRow(value) { this.state.selectedRow = value }
+  get selectedRow() { 
+    const stateController = this.getController('mode-state-management')
+    return stateController ? stateController.getSelectedRow() : null
+  }
+  set selectedRow(value) { 
+    const stateController = this.getController('mode-state-management')
+    if (stateController) stateController.setSelectedRow(value)
+  }
   
-  get selectedCol() { return this.state.selectedCol }
-  set selectedCol(value) { this.state.selectedCol = value }
+  get selectedCol() { 
+    const stateController = this.getController('mode-state-management')
+    return stateController ? stateController.getSelectedCol() : null
+  }
+  set selectedCol(value) { 
+    const stateController = this.getController('mode-state-management')
+    if (stateController) stateController.setSelectedCol(value)
+  }
   
-  get direction() { return this.state.direction }
-  set direction(value) { this.state.direction = value }
+  get direction() { 
+    const stateController = this.getController('mode-state-management')
+    return stateController ? stateController.getDirection() : 'across'
+  }
+  set direction(value) { 
+    const stateController = this.getController('mode-state-management')
+    if (stateController) stateController.setDirection(value)
+  }
   
-  get highlightedCells() { return this.state.highlightedCells }
-  set highlightedCells(value) { this.state.highlightedCells = value }
+  get isBlockMode() { 
+    const stateController = this.getController('mode-state-management')
+    return stateController ? stateController.getIsBlockMode() : false
+  }
+  set isBlockMode(value) { 
+    const stateController = this.getController('mode-state-management')
+    if (stateController) stateController.setIsBlockMode(value)
+  }
   
-  get isBlockMode() { return this.state.isBlockMode }
-  set isBlockMode(value) { this.state.isBlockMode = value }
+  get usedClueIds() { 
+    const stateController = this.getController('mode-state-management')
+    return stateController ? stateController.getUsedClueIds() : new Set()
+  }
+  set usedClueIds(value) { 
+    const stateController = this.getController('mode-state-management')
+    if (stateController) stateController.setUsedClueIds(value)
+  }
   
-  get usedClueIds() { return this.state.usedClueIds }
-  set usedClueIds(value) { this.state.usedClueIds = value }
-  
-  get appliedClues() { return this.state.appliedClues }
-  set appliedClues(value) { this.state.appliedClues = value }
-  
-  get cluesData() { return this.state.cluesData }
-  set cluesData(value) { this.state.cluesData = value }
-  
-  get currentClue() { return this.state.currentClue }
-  set currentClue(value) { this.state.currentClue = value }
+  get appliedClues() { 
+    const stateController = this.getController('mode-state-management')
+    return stateController ? stateController.getAppliedClues() : new Map()
+  }
+  set appliedClues(value) { 
+    const stateController = this.getController('mode-state-management')
+    if (stateController) stateController.setAppliedClues(value)
+  }
 
   // Helper method to get controllers with fallback handling
   getController(identifier) {
@@ -93,6 +102,7 @@ export default class extends Controller {
   // Helper method to notify multiple controllers
   notifyControllers() {
     this.delegateToController('zoom', 'updateGridDimensions', this.gridWidth, this.gridHeight)
+    this.delegateToController('highlight', 'updateGridDimensions', this.gridWidth, this.gridHeight)
     
     const navigationController = this.getController('navigation')
     if (navigationController) {
@@ -104,6 +114,11 @@ export default class extends Controller {
     }
     
     this.delegateToController('grid-management', 'updateGridDimensions', this.gridWidth, this.gridHeight)
+    
+    // Sync clue data with create mode clue management controller
+    if (this.modeValue === 'create') {
+      this.delegateToController('create-mode-clue-management', 'syncClueData', this.usedClueIds, this.appliedClues)
+    }
   }
 
   initializeGrid() {
@@ -121,11 +136,16 @@ export default class extends Controller {
       this.gridHeight = this.gridData.length
       this.gridWidth = this.gridData[0]?.length || 15
 
-      // Load clues data for play mode
-      this.loadCluesData()
+      // Load clues data for play mode via play mode clue management controller
+      this.delegateToController('play-mode-clue-management', 'loadCluesData')
 
       // Notify all controllers of grid dimensions and state
       this.notifyControllers()
+      
+      // Update numbering for create mode after controllers are notified
+      if (this.modeValue === 'create') {
+        this.delegateToController('grid-management', 'updateNumbering', this.gridData)
+      }
     }
   }
 
@@ -145,7 +165,6 @@ export default class extends Controller {
 
   bindGlobalEvents() {
     const globalEvents = [
-      { target: document, event: 'keydown', handler: 'handleKeydown' },
       { target: this.element, event: 'click', handler: 'handleCellClick' }
     ]
     
@@ -246,25 +265,7 @@ export default class extends Controller {
       if (gridController) {
         gridController.toggleBlock(row, col, this.gridData)
       } else {
-        // Fallback implementation
-        if (this.isValidPosition(row, col)) {
-          const currentValue = this.gridData[row][col]
-          const newValue = currentValue === '#' ? null : '#'
-          this.gridData[row][col] = newValue
-          
-          const cell = this.getCellElement(row, col)
-          if (cell) {
-            if (newValue === '#') {
-              cell.classList.add('blocked')
-              cell.innerHTML = ''
-            } else {
-              cell.classList.remove('blocked')
-              cell.innerHTML = ''
-            }
-          }
-          
-          this.updateGridData()
-        }
+        console.error('Grid management controller not found for block toggle')
       }
     } else {
       this.selectCell(row, col)
@@ -276,7 +277,7 @@ export default class extends Controller {
     if (this.selectedCell) {
       this.selectedCell.classList.remove('selected')
     }
-    this.clearHighlights()
+    this.delegateToController('highlight', 'clearHighlights')
 
     // Select new cell
     const cell = this.getCellElement(row, col)
@@ -292,14 +293,14 @@ export default class extends Controller {
 
       // Only highlight and update direction in letter mode, not block mode
       if (!(this.modeValue === 'create' && this.isBlockMode)) {
-        this.highlightCurrentWord(row, col)
+        this.delegateToController('highlight', 'highlightCurrentWord', row, col, this.direction, this.gridData)
         
         // Notify navigation controller to update direction indicator
         this.delegateToController('navigation', 'updateDirectionIndicator')
         
         // For play mode, update current clue display
         if (this.modeValue === 'play') {
-          this.delegateToController('clue-display', 'updateCurrentClueFromPosition', row, col, this.direction)
+          this.delegateToController('play-mode-clue-management', 'updateCurrentClueFromPosition', row, col, this.direction)
         } else {
           // Show matching clues for the current word in create mode
           const currentWord = this.getCurrentWordInfo(row, col)
@@ -311,466 +312,103 @@ export default class extends Controller {
     }
   }
 
-  clearHighlights() {
-    this.highlightedCells.forEach(cell => {
-      cell.classList.remove('highlighted')
-    })
-    this.highlightedCells = []
-  }
-
-  highlightCurrentWord(row, col) {
-    if (this.direction === 'across') {
-      this.highlightAcrossWord(row, col)
-    } else {
-      this.highlightDownWord(row, col)
-    }
-  }
-
-  highlightAcrossWord(row, col) {
-    // Find start of word (leftmost non-blocked cell)
-    let startCol = col
-    while (startCol > 0 && !this.isCellBlocked(row, startCol - 1)) {
-      startCol--
-    }
-
-    // Find end of word (rightmost non-blocked cell)
-    let endCol = col
-    while (endCol < this.gridWidth - 1 && !this.isCellBlocked(row, endCol + 1)) {
-      endCol++
-    }
-
-    // Highlight the word (only if it's more than 1 letter)
-    if (endCol > startCol) {
-      for (let c = startCol; c <= endCol; c++) {
-        const cell = this.getCellElement(row, c)
-        if (cell && !cell.classList.contains('blocked')) {
-          cell.classList.add('highlighted')
-          this.highlightedCells.push(cell)
-        }
-      }
-    }
-  }
-
-  highlightDownWord(row, col) {
-    // Find start of word (topmost non-blocked cell)
-    let startRow = row
-    while (startRow > 0 && !this.isCellBlocked(startRow - 1, col)) {
-      startRow--
-    }
-
-    // Find end of word (bottommost non-blocked cell)
-    let endRow = row
-    while (endRow < this.gridHeight - 1 && !this.isCellBlocked(endRow + 1, col)) {
-      endRow++
-    }
-
-    // Highlight the word (only if it's more than 1 letter)
-    if (endRow > startRow) {
-      for (let r = startRow; r <= endRow; r++) {
-        const cell = this.getCellElement(r, col)
-        if (cell && !cell.classList.contains('blocked')) {
-          cell.classList.add('highlighted')
-          this.highlightedCells.push(cell)
-        }
-      }
-    }
-  }
-
-  handleKeydown(event) {
-    // Don't handle keydown if user is typing in a form field
-    if (this.shouldIgnoreKeydown(event)) return
-    if (!this.selectedCell) return
-
-    const context = this.getKeydownContext(event)
-    
-    // Handle keys based on mode
-    if (context.isBlockMode) {
-      this.handleBlockModeKey(event, context)
-    } else {
-      this.handleLetterModeKey(event, context)
-    }
-  }
-
-  // Helper methods for keyboard handling
-  shouldIgnoreKeydown(event) {
-    const ignoreTags = ['INPUT', 'TEXTAREA', 'SELECT']
-    return ignoreTags.includes(event.target.tagName)
-  }
-
-  getKeydownContext(event) {
-    return {
-      row: this.selectedRow,
-      col: this.selectedCol,
-      key: event.key,
-      isShiftModifier: event.shiftKey,
-      isBlockMode: this.modeValue === 'create' && this.isBlockMode,
-      isPlayMode: this.modeValue === 'play',
-      isCreateMode: this.modeValue === 'create'
-    }
-  }
-
-  handleBlockModeKey(event, context) {
-    const keyHandlers = this.getBlockModeKeyHandlers()
-    const handler = keyHandlers[context.key]
-    
-    if (handler) {
-      event.preventDefault()
-      handler(context)
-    }
-  }
-
-  handleLetterModeKey(event, context) {
-    const keyHandlers = this.getLetterModeKeyHandlers()
-    const handler = keyHandlers[context.key]
-    
-    if (handler) {
-      event.preventDefault()
-      // Special case for Tab key which needs the event object
-      if (context.key === 'Tab') {
-        handler(context, event)
-      } else {
-        handler(context)
-      }
-    } else if (context.key.match(/^[a-zA-Z]$/)) {
-      event.preventDefault()
-      this.handleLetterInput(context, context.key.toUpperCase())
-    }
-  }
-
-  // Configuration for block mode key handlers
-  getBlockModeKeyHandlers() {
-    const navigationController = this.getController('navigation')
-    
-    return {
-      'ArrowUp': (context) => {
-        if (navigationController) {
-          navigationController.moveSelection(context.row - 1, context.col)
-        }
-      },
-      'ArrowDown': (context) => {
-        if (navigationController) {
-          navigationController.moveSelection(context.row + 1, context.col)
-        }
-      },
-      'ArrowLeft': (context) => {
-        if (navigationController) {
-          navigationController.moveSelection(context.row, context.col - 1)
-        }
-      },
-      'ArrowRight': (context) => {
-        if (navigationController) {
-          navigationController.moveSelection(context.row, context.col + 1)
-        }
-      },
-      ' ': (context) => {
-        const gridController = this.getController('grid-management')
-        if (gridController) {
-          gridController.toggleBlock(context.row, context.col, this.gridData)
-        } else {
-          this.toggleBlock(context.row, context.col)
-        }
-      }
-    }
-  }
-
-  // Configuration for letter mode key handlers
-  getLetterModeKeyHandlers() {
-    const navigationController = this.getController('navigation')
-    
-    return {
-      'Enter': (context) => {
-        if (navigationController) {
-          navigationController.toggleDirection()
-        }
-      },
-      'ArrowUp': (context) => {
-        this.handleArrowKey(context, 'down', context.row - 1, context.col)
-      },
-      'ArrowDown': (context) => {
-        this.handleArrowKey(context, 'down', context.row + 1, context.col)
-      },
-      'ArrowLeft': (context) => {
-        this.handleArrowKey(context, 'across', context.row, context.col - 1)
-      },
-      'ArrowRight': (context) => {
-        this.handleArrowKey(context, 'across', context.row, context.col + 1)
-      },
-      'Backspace': (context) => this.handleDeleteKey(context, true),
-      'Delete': (context) => this.handleDeleteKey(context, true),
-      ' ': (context) => this.handleSpaceKey(context),
-      'Tab': (context, event) => this.handleTabKey(context, event)
-    }
-  }
-
-  // Specialized handlers for complex keys
-  handleArrowKey(context, direction, newRow, newCol) {
-    this.direction = direction
-    const navigationController = this.getController('navigation')
-    if (navigationController) {
-      navigationController.updateDirection(direction)
-      navigationController.moveSelection(newRow, newCol)
-    }
-  }
-
-  handleDeleteKey(context, moveBackward) {
-    const gridController = this.getController('grid-management')
-    if (gridController) {
-      gridController.setCellValue(context.row, context.col, '', this.gridData)
-    } else {
-      // Fallback implementation
-      this.gridData[context.row][context.col] = null
-      const cell = this.getCellElement(context.row, context.col)
-      if (cell) {
-        cell.classList.remove('blocked')
-        const existingNumber = cell.querySelector('.cell-number')
-        const numberHtml = existingNumber ? existingNumber.outerHTML : ''
-        cell.innerHTML = numberHtml
-      }
-      this.updateGridData()
-    }
-    
-    const navigationController = this.getController('navigation')
-    if (navigationController) {
-      navigationController.moveInDirection(context.row, context.col, moveBackward)
-    }
-  }
-
-  handleSpaceKey(context) {
-    if (context.isCreateMode) {
-      const gridController = this.getController('grid-management')
-      if (gridController) {
-        gridController.toggleBlock(context.row, context.col, this.gridData)
-      } else {
-        this.toggleBlock(context.row, context.col)
-      }
-    } else {
-      const navigationController = this.getController('navigation')
-      if (navigationController) {
-        navigationController.moveInDirection(context.row, context.col, false)
-      }
-    }
-  }
-
-  handleTabKey(context, event) {
-    console.log('Tab pressed, shiftKey:', event.shiftKey, 'mode:', this.modeValue)
-    if (context.isPlayMode) {
-      // In play mode, use unfilled word navigation
-      if (event.shiftKey) {
-        console.log('Calling moveToPreviousUnfilledWord')
-        this.moveToPreviousUnfilledWord()
-      } else {
-        console.log('Calling moveToNextUnfilledWord')
-        this.moveToNextUnfilledWord()
-      }
-    } else {
-      // In create mode, use basic word navigation
-      const navigationController = this.getController('navigation')
-      if (navigationController) {
-        if (event.shiftKey) {
-          navigationController.moveToPreviousWord()
-        } else {
-          navigationController.moveToNextWord()
-        }
-      }
-    }
-  }
-
-  handleLetterInput(context, letter) {
-    const gridController = this.getController('grid-management')
-    if (gridController) {
-      gridController.setCellValue(context.row, context.col, letter, this.gridData)
-    } else {
-      // Fallback implementation
-      this.gridData[context.row][context.col] = letter
-      const cell = this.getCellElement(context.row, context.col)
-      if (cell) {
-        cell.classList.remove('blocked', 'error')
-        const existingNumber = cell.querySelector('.cell-number')
-        const numberHtml = existingNumber ? existingNumber.outerHTML : ''
-        cell.innerHTML = numberHtml + `<span class="cell-letter">${letter}</span>`
-      }
-      this.updateGridData()
-      
-      // If in play mode and puzzle exists, save to server
-      if (context.isPlayMode && this.puzzleIdValue) {
-        this.saveCell(context.row, context.col, letter)
-      }
-    }
-    
-    // Handle auto-advance in play mode
-    if (context.isPlayMode && this.isWordComplete(context.row, context.col)) {
-      console.log('Word completed at', context.row, context.col, '- auto-advancing to next unfilled word')
-      this.moveToNextUnfilledWord()
-    } else {
-      const navigationController = this.getController('navigation')
-      if (navigationController) {
-        navigationController.moveInDirection(context.row, context.col, false)
-      }
-    }
-  }
-
+  // Method to toggle direction - called by keyboard handler
   toggleDirection() {
-    // Don't toggle direction in block mode
-    if (this.modeValue === 'create' && this.isBlockMode) {
-      return
-    }
-
-    this.direction = this.direction === 'across' ? 'down' : 'across'
-    this.clearHighlights()
-    this.highlightCurrentWord(this.selectedRow, this.selectedCol)
-    
-    // Notify navigation controller to update direction indicator
-    const navigationController = this.application.getControllerForElementAndIdentifier(this.element, 'navigation')
-    if (navigationController) {
-      navigationController.updateDirection(this.direction)
-      navigationController.updateDirectionIndicator()
-    }
-    
-    // Update clue highlighting for the new direction in play mode
-    if (this.modeValue === 'play' && this.selectedRow !== undefined && this.selectedCol !== undefined) {
-      const clueDisplayController = this.application.getControllerForElementAndIdentifier(this.element, 'clue-display')
-      if (clueDisplayController) {
-        clueDisplayController.updateCurrentClueFromPosition(this.selectedRow, this.selectedCol, this.direction)
-      }
-    }
-    
-    // Update clue suggestions for the new direction in create mode
-    if (this.modeValue === 'create' && this.selectedRow !== undefined && this.selectedCol !== undefined) {
-      const currentWord = this.getCurrentWordInfo(this.selectedRow, this.selectedCol)
-      if (currentWord) {
-        const clueController = this.application.getControllerForElementAndIdentifier(this.element, 'clue-suggestions')
-        if (clueController) {
-          clueController.updateCluesSuggestions(this.selectedRow, this.selectedCol, currentWord, this.gridData)
-        }
-      }
+    const keyboardHandler = this.getController('keyboard-handler')
+    if (keyboardHandler) {
+      keyboardHandler.toggleDirection()
     }
   }
 
-  // Check if the current word is completely filled after typing in a cell
+  // Play mode clue management delegation methods
+  loadCluesData() {
+    return this.delegateToController('play-mode-clue-management', 'loadCluesData')
+  }
+
+  getCluesData() {
+    return this.delegateToController('play-mode-clue-management', 'getCluesData')
+  }
+
+  getCurrentClue() {
+    return this.delegateToController('play-mode-clue-management', 'getCurrentClue')
+  }
+
+  handleClueClick(event) {
+    return this.delegateToController('play-mode-clue-management', 'handleClueClick', event)
+  }
+
+  updateCurrentClueFromPosition(row, col, direction) {
+    return this.delegateToController('play-mode-clue-management', 'updateCurrentClueFromPosition', row, col, direction)
+  }
+
+  // UI Message & Display Management delegation methods
+  setCellValue(row, col, value) {
+    return this.delegateToController('ui-message-display', 'setCellValue', row, col, value)
+  }
+
+  clearCellError(row, col) {
+    return this.delegateToController('ui-message-display', 'clearCellError', row, col)
+  }
+
+  fillClueWord(clue) {
+    return this.delegateToController('ui-message-display', 'fillClueWord', clue)
+  }
+
+  showMessage(text, type = 'info') {
+    return this.delegateToController('ui-message-display', 'showMessage', text, type)
+  }
+
+  showPuzzleCompletedMessage() {
+    return this.delegateToController('ui-message-display', 'showPuzzleCompletedMessage')
+  }
+
+  // Check if the current word is completely filled after typing in a cell (delegate to word navigation)
   isWordComplete(row, col) {
-    console.log(`Checking if word is complete at (${row}, ${col})`)
-    
-    // Ensure clues data is loaded
-    if (!this.cluesData) {
-      console.log('Clues data not loaded, attempting to load now')
-      this.loadCluesData()
-    }
-    
-    const playModeController = this.application.getControllerForElementAndIdentifier(this.element, 'play-mode-operations')
-    if (playModeController) {
-      const result = playModeController.isWordComplete(row, col, this.cluesData, this.gridData, this.direction)
-      console.log(`Word complete result: ${result}`)
-      return result
-    }
-    console.log('No play mode controller found')
-    return false
+    return this.delegateToController('word-navigation-logic', 'isWordComplete', row, col, this.direction)
   }
 
-  // Get the bounds of the current word
+  // Get the bounds of the current word (delegate to word navigation)
   getCurrentWordBounds(row, col) {
-    if (this.direction === 'across') {
-      // Find start and end of across word
-      let startCol = col
-      while (startCol > 0 && !this.isCellBlocked(row, startCol - 1)) {
-        startCol--
-      }
-      let endCol = col
-      while (endCol < this.gridWidth - 1 && !this.isCellBlocked(row, endCol + 1)) {
-        endCol++
-      }
-      
-      // Only return bounds if it's a valid word (more than 1 letter)
-      if (endCol > startCol) {
-        return { startRow: row, endRow: row, startCol, endCol }
-      }
-    } else {
-      // Find start and end of down word
-      let startRow = row
-      while (startRow > 0 && !this.isCellBlocked(startRow - 1, col)) {
-        startRow--
-      }
-      let endRow = row
-      while (endRow < this.gridHeight - 1 && !this.isCellBlocked(endRow + 1, col)) {
-        endRow++
-      }
-      
-      // Only return bounds if it's a valid word (more than 1 letter)
-      if (endRow > startRow) {
-        return { startRow, endRow, startCol: col, endCol: col }
-      }
-    }
-    return null
+    return this.delegateToController('word-navigation-logic', 'getCurrentWordBounds', row, col, this.direction, this.gridData, this.gridWidth, this.gridHeight)
   }
 
-  // Move to the next unfilled word in the current direction, or switch directions
+  // Move to the next unfilled word (delegate to word navigation)
   moveToNextUnfilledWord() {
-    console.log(`Main controller: moveToNextUnfilledWord called from (${this.selectedRow}, ${this.selectedCol}) direction: ${this.direction}`)
-    
-    // Ensure clues data is loaded
-    if (!this.cluesData) {
-      console.log('Clues data not loaded, attempting to load now')
-      this.loadCluesData()
-    }
-    
-    const playModeController = this.application.getControllerForElementAndIdentifier(this.element, 'play-mode-operations')
-    if (playModeController) {
-      console.log('Found play mode controller, calling moveToNextUnfilledWord')
-      const nextPosition = playModeController.moveToNextUnfilledWord(this.cluesData, this.gridData, this.direction, this.selectedRow, this.selectedCol)
-      if (nextPosition) {
-        console.log(`Moving to next position: (${nextPosition.row}, ${nextPosition.col}) direction: ${nextPosition.direction}`)
-        this.direction = nextPosition.direction
-        this.selectCell(nextPosition.row, nextPosition.col)
-        return
-      } else {
-        console.log('No next unfilled word found by play mode controller')
-      }
-    } else {
-      console.log('No play mode controller found')
+    const nextPosition = this.delegateToController('word-navigation-logic', 'moveToNextUnfilledWord', this.selectedRow, this.selectedCol, this.direction)
+    if (nextPosition) {
+      this.direction = nextPosition.direction
+      this.selectCell(nextPosition.row, nextPosition.col)
+      return
     }
 
     // Fallback to normal navigation
     console.log('Falling back to normal navigation')
-    const navigationController = this.application.getControllerForElementAndIdentifier(this.element, 'navigation')
+    const navigationController = this.getController('navigation')
     if (navigationController) {
       navigationController.moveInDirection(this.selectedRow, this.selectedCol, false)
     }
   }
 
+  // Move to the previous unfilled word (delegate to word navigation)
   moveToPreviousUnfilledWord() {
-    console.log(`Main controller: moveToPreviousUnfilledWord called from (${this.selectedRow}, ${this.selectedCol}) direction: ${this.direction}`)
-    const playModeController = this.application.getControllerForElementAndIdentifier(this.element, 'play-mode-operations')
-    if (playModeController) {
-      console.log('Found play mode controller, calling moveToPreviousUnfilledWord')
-      const prevPosition = playModeController.moveToPreviousUnfilledWord(this.cluesData, this.gridData, this.direction, this.selectedRow, this.selectedCol)
-      if (prevPosition) {
-        console.log(`Moving to previous position: (${prevPosition.row}, ${prevPosition.col}) direction: ${prevPosition.direction}`)
-        this.direction = prevPosition.direction
-        this.selectCell(prevPosition.row, prevPosition.col)
-        return
-      } else {
-        console.log('No previous unfilled word found by play mode controller')
-      }
-    } else {
-      console.log('No play mode controller found')
+    const prevPosition = this.delegateToController('word-navigation-logic', 'moveToPreviousUnfilledWord', this.selectedRow, this.selectedCol, this.direction)
+    if (prevPosition) {
+      this.direction = prevPosition.direction
+      this.selectCell(prevPosition.row, prevPosition.col)
+      return
     }
 
     // Fallback to normal navigation
     console.log('Falling back to normal navigation')
-    const navigationController = this.application.getControllerForElementAndIdentifier(this.element, 'navigation')
+    const navigationController = this.getController('navigation')
     if (navigationController) {
       navigationController.moveInDirection(this.selectedRow, this.selectedCol, true) // Move backward
     }
   }
 
-  // Get the number of the current word
+  // Get the number of the current word (delegate to word navigation)
   getCurrentWordNumber() {
-    const numbering = this.calculateGridNumbering(this.gridData)
-    const wordBounds = this.getCurrentWordBounds(this.selectedRow, this.selectedCol)
-    if (!wordBounds) return null
-
-    // For both across and down, we want the starting position of the word
-    const startKey = `${wordBounds.startRow},${wordBounds.startCol}`
-    return numbering[startKey] || null
+    return this.delegateToController('word-navigation-logic', 'getCurrentWordNumber', this.selectedRow, this.selectedCol, this.gridData)
   }
 
   updateGridData() {
@@ -783,78 +421,17 @@ export default class extends Controller {
     this.delegateToController('navigation', 'updateGridData', this.gridData)
   }
 
+  // Delegate mode management to mode state management controller
   toggleMode() {
-    this.isBlockMode = !this.isBlockMode
-
-    // Notify navigation controller of block mode change
-    this.delegateToController('navigation', 'setBlockMode', this.isBlockMode)
-
-    // Clear highlights when entering block mode
-    if (this.isBlockMode) {
-      this.clearHighlights()
-      // Also remove selected state since we can't select blocked cells in block mode
-      if (this.selectedCell) {
-        this.selectedCell.classList.remove('selected')
-        this.selectedCell = null
-      }
-    }
-
-    const toggleBtn = this.element.querySelector('#toggle-mode-btn')
-    if (toggleBtn) {
-      toggleBtn.textContent = this.isBlockMode ? 'Switch to Letter Mode' : 'Switch to Block Mode'
-      toggleBtn.className = this.isBlockMode ?
-        'btn btn-sm btn-outline-danger' :
-        'btn btn-sm btn-outline-secondary'
-    }
+    return this.delegateToController('mode-state-management', 'toggleMode')
   }
 
   clearGrid() {
-    if (confirm('Are you sure you want to clear the entire grid?')) {
-      if (this.modeValue === 'play') {
-        // In play mode, clear all user entries but keep the grid structure
-        this.clearUserEntries()
-      } else {
-        // In create mode, delegate to grid management controller for full clear
-        this.delegateToController('grid-management', 'clearGrid', this.gridData)
-      }
-    }
+    return this.delegateToController('mode-state-management', 'clearGrid')
   }
 
   clearUserEntries() {
-    // Clear all user-entered letters while preserving the grid structure
-    for (let row = 0; row < this.gridHeight; row++) {
-      for (let col = 0; col < this.gridWidth; col++) {
-        if (this.gridData[row][col] && this.gridData[row][col] !== '#') {
-          // Clear the letter but keep any block structure
-          this.gridData[row][col] = null
-          const cell = this.getCellElement(row, col)
-          if (cell && !cell.classList.contains('blocked')) {
-            // Keep the cell number but remove the letter
-            const existingNumber = cell.querySelector('.cell-number')
-            const numberHtml = existingNumber ? existingNumber.outerHTML : ''
-            cell.innerHTML = numberHtml
-            cell.classList.remove('error', 'correct')
-          }
-        }
-      }
-    }
-    
-    // Update the grid data
-    this.updateGridData()
-    
-    // Save the cleared state to server if in play mode
-    if (this.puzzleIdValue) {
-      this.delegateToController('play-mode-operations', 'saveClearedPuzzle')
-    }
-    
-    // Clear any selection and highlights
-    if (this.selectedCell) {
-      this.selectedCell.classList.remove('selected')
-      this.selectedCell = null
-      this.selectedRow = null
-      this.selectedCol = null
-    }
-    this.clearHighlights()
+    return this.delegateToController('mode-state-management', 'clearUserEntries')
   }
 
   // Event handlers for navigation controller
@@ -866,15 +443,12 @@ export default class extends Controller {
   handleDirectionChanged(event) {
     const { direction } = event.detail
     this.direction = direction
-    this.clearHighlights()
-    this.highlightCurrentWord(this.selectedRow, this.selectedCol)
+    this.delegateToController('highlight', 'clearHighlights')
+    this.delegateToController('highlight', 'highlightCurrentWord', this.selectedRow, this.selectedCol, this.direction, this.gridData)
     
     // Update clue highlighting for the new direction in play mode
     if (this.modeValue === 'play' && this.selectedRow !== undefined && this.selectedCol !== undefined) {
-      const clueDisplayController = this.application.getControllerForElementAndIdentifier(this.element, 'clue-display')
-      if (clueDisplayController) {
-        clueDisplayController.updateCurrentClueFromPosition(this.selectedRow, this.selectedCol, this.direction)
-      }
+      this.delegateToController('play-mode-clue-management', 'updateCurrentClueFromPosition', this.selectedRow, this.selectedCol, this.direction)
     }
     
     // Update clue suggestions for the new direction in create mode
@@ -924,8 +498,8 @@ export default class extends Controller {
       clueController.syncAppliedClues([])
     }
     
-    // Update the clues preview
-    this.updateCluesPreview()
+    // Update the clues preview via create mode clue management controller
+    this.delegateToController('create-mode-clue-management', 'updateCluesPreview')
   }
 
   // Event handlers for clue suggestions controller
@@ -993,7 +567,13 @@ export default class extends Controller {
   handleUpdateCluesPreview(event) {
     const { appliedClues } = event.detail
     this.appliedClues = appliedClues
-    this.updateCluesPreview()
+    
+    // Delegate to create mode clue management controller
+    const clueController = this.getController('create-mode-clue-management')
+    if (clueController) {
+      const numbering = this.calculateGridNumbering(this.gridData)
+      clueController.processCluesPreviewUpdate(numbering)
+    }
   }
 
   // Event handler for clue display controller
@@ -1037,734 +617,90 @@ export default class extends Controller {
   }
 
   getWordPositions(wordInfo) {
-    const result = this.delegateToController('grid-management', 'getWordPositions', wordInfo)
-    if (result) return result
-    
-    // Fallback implementation
-    const positions = []
-    if (wordInfo.direction === 'across') {
-      for (let i = 0; i < wordInfo.length; i++) {
-        positions.push({
-          row: wordInfo.startRow,
-          col: wordInfo.startCol + i
-        })
-      }
-    } else {
-      for (let i = 0; i < wordInfo.length; i++) {
-        positions.push({
-          row: wordInfo.startRow + i,
-          col: wordInfo.startCol
-        })
-      }
-    }
-    return positions
+    return this.delegateToController('grid-management', 'getWordPositions', wordInfo) || []
   }
 
   isPositionUsedByOtherClues(row, col, excludeWordKey) {
-    const result = this.delegateToController('grid-management', 'isPositionUsedByOtherClues', 
-                                            row, col, excludeWordKey, this.appliedClues)
-    if (result !== null) return result
-    
-    // Fallback implementation
-    for (const [wordKey, appliedClue] of this.appliedClues.entries()) {
-      if (wordKey === excludeWordKey) continue
-      
-      const positions = this.getWordPositions(appliedClue.wordInfo)
-      const isUsed = positions.some(pos => pos.row === row && pos.col === col)
-      if (isUsed) return true
-    }
-    return false
+    return this.delegateToController('grid-management', 'isPositionUsedByOtherClues', 
+                                    row, col, excludeWordKey, this.appliedClues) ?? false
   }
 
   // Clue suggestion methods are now handled by CluesSuggestionsController
 
   getCurrentWordInfo(row, col) {
-    // Delegate to grid management controller
-    const gridController = this.application.getControllerForElementAndIdentifier(this.element, 'grid-management')
-    if (gridController) {
-      return gridController.getCurrentWordInfo(row, col, this.direction, this.gridData)
-    }
-    
-    // Fallback to original implementation
-    const numbering = this.calculateGridNumbering(this.gridData)
-    let wordInfo = null
-
-    if (this.direction === 'across') {
-      // Find start of current across word
-      let startCol = col
-      while (startCol > 0 && !this.isCellBlocked(row, startCol - 1)) {
-        startCol--
-      }
-
-      // Find end of current across word
-      let endCol = col
-      while (endCol < this.gridWidth - 1 && !this.isCellBlocked(row, endCol + 1)) {
-        endCol++
-      }
-
-      // Check if this word has a number (starts a word)
-      const wordNumber = numbering[`${row},${startCol}`]
-      if (wordNumber && endCol > startCol) {
-        // Get current word pattern
-        let pattern = ''
-        for (let c = startCol; c <= endCol; c++) {
-          const cellValue = this.gridData[row][c]
-          pattern += cellValue || '_'
-        }
-
-        wordInfo = {
-          number: wordNumber,
-          direction: 'across',
-          length: endCol - startCol + 1,
-          pattern: pattern,
-          startRow: row,
-          startCol: startCol
-        }
-      }
-    } else {
-      // Find start of current down word
-      let startRow = row
-      while (startRow > 0 && !this.isCellBlocked(startRow - 1, col)) {
-        startRow--
-      }
-
-      // Find end of current down word
-      let endRow = row
-      while (endRow < this.gridHeight - 1 && !this.isCellBlocked(endRow + 1, col)) {
-        endRow++
-      }
-
-      // Check if this word has a number (starts a word)
-      const wordNumber = numbering[`${startRow},${col}`]
-      if (wordNumber && endRow > startRow) {
-        // Get current word pattern
-        let pattern = ''
-        for (let r = startRow; r <= endRow; r++) {
-          const cellValue = this.gridData[r][col]
-          pattern += cellValue || '_'
-        }
-
-        wordInfo = {
-          number: wordNumber,
-          direction: 'down',
-          length: endRow - startRow + 1,
-          pattern: pattern,
-          startRow: startRow,
-          startCol: col
-        }
-      }
-    }
-
-    return wordInfo
+    // Delegate to word navigation logic controller
+    return this.delegateToController('word-navigation-logic', 'getCurrentWordInfo', row, col, this.direction, this.gridData)
   }
 
+  // Delegate intersecting constraints to create mode clue management controller
   getIntersectingConstraints(wordInfo) {
-    const constraints = []
-    const positions = this.getWordPositions(wordInfo)
-
-    console.log(`🎯 Getting intersecting constraints for ${wordInfo.direction} word at ${wordInfo.startRow},${wordInfo.startCol}`)
-    console.log('📍 Word positions:', positions)
-
-    positions.forEach((pos, index) => {
-      // For each position in the current word, check if there are intersecting words
-      // that would constrain what letter can go there
-      const intersectingWordInfo = this.getIntersectingWordAt(pos.row, pos.col, wordInfo.direction)
-      
-      if (intersectingWordInfo && intersectingWordInfo.hasConstraints) {
-        const constraint = {
-          position: index, // Position within the current word (0-based)
-          intersecting_direction: intersectingWordInfo.direction,
-          intersecting_number: intersectingWordInfo.number,
-          intersecting_pattern: intersectingWordInfo.pattern,
-          intersecting_position: intersectingWordInfo.intersectionPosition
-        }
-        constraints.push(constraint)
-        console.log(`✓ Found constraint at position ${index}:`, constraint)
-      } else {
-        console.log(`○ No constraint at position ${index} (${pos.row},${pos.col})`)
-      }
-    })
-
-    console.log('🔗 Final constraints:', constraints)
-    return constraints
-  }
-
-  getIntersectingWordAt(row, col, currentDirection) {
-    // Get the perpendicular direction
-    const intersectingDirection = currentDirection === 'across' ? 'down' : 'across'
-    
-    let wordInfo = null
-    const numbering = this.calculateGridNumbering(this.gridData)
-
-    if (intersectingDirection === 'across') {
-      // Find start of intersecting across word
-      let startCol = col
-      while (startCol > 0 && !this.isCellBlocked(row, startCol - 1)) {
-        startCol--
-      }
-
-      // Find end of intersecting across word
-      let endCol = col
-      while (endCol < this.gridWidth - 1 && !this.isCellBlocked(row, endCol + 1)) {
-        endCol++
-      }
-
-      // Check if this is a valid word (more than 1 letter)
-      if (endCol > startCol) {
-        let pattern = ''
-        let hasConstraints = false
-        
-        for (let c = startCol; c <= endCol; c++) {
-          const cellValue = this.gridData[row][c]
-          if (cellValue && cellValue !== '#') {
-            pattern += cellValue
-            hasConstraints = true // Has existing letters
-          } else {
-            pattern += '_'
-          }
-        }
-
-        // Even if no letters exist yet, this is still a constraint if it's a valid word slot
-        // Check if this position would start a numbered word
-        const wordNumber = numbering[`${row},${startCol}`]
-        if (wordNumber || hasConstraints) {
-          wordInfo = {
-            direction: 'across',
-            pattern: pattern,
-            intersectionPosition: col - startCol, // This is the key fix - position within the intersecting word
-            hasConstraints: hasConstraints || (endCol - startCol + 1) >= 3 // Constraint if it has letters OR is a valid word length
-          }
-          console.log(`🔍 Found intersecting across word at row ${row}, cols ${startCol}-${endCol}`)
-          console.log(`   Pattern: "${pattern}", intersection at position ${col - startCol}`)
-        }
-      }
-    } else {
-      // Find start of intersecting down word
-      let startRow = row
-      while (startRow > 0 && !this.isCellBlocked(startRow - 1, col)) {
-        startRow--
-      }
-
-      // Find end of intersecting down word
-      let endRow = row
-      while (endRow < this.gridHeight - 1 && !this.isCellBlocked(endRow + 1, col)) {
-        endRow++
-      }
-
-      // Check if this is a valid word (more than 1 letter)
-      if (endRow > startRow) {
-        let pattern = ''
-        let hasConstraints = false
-        
-        for (let r = startRow; r <= endRow; r++) {
-          const cellValue = this.gridData[r][col]
-          if (cellValue && cellValue !== '#') {
-            pattern += cellValue
-            hasConstraints = true // Has existing letters
-          } else {
-            pattern += '_'
-          }
-        }
-
-        // Even if no letters exist yet, this is still a constraint if it's a valid word slot
-        // Check if this position would start a numbered word
-        const wordNumber = numbering[`${startRow},${col}`]
-        if (wordNumber || hasConstraints) {
-          wordInfo = {
-            direction: 'down',
-            pattern: pattern,
-            intersectionPosition: row - startRow, // This is the key fix - position within the intersecting word
-            hasConstraints: hasConstraints || (endRow - startRow + 1) >= 3 // Constraint if it has letters OR is a valid word length
-          }
-          console.log(`🔍 Found intersecting down word at col ${col}, rows ${startRow}-${endRow}`)
-          console.log(`   Pattern: "${pattern}", intersection at position ${row - startRow}`)
-        }
-      }
+    const clueController = this.getController('create-mode-clue-management')
+    if (clueController) {
+      return clueController.getIntersectingConstraints(
+        wordInfo, 
+        this.gridData, 
+        this.getWordPositions.bind(this), 
+        this.calculateGridNumbering.bind(this)
+      )
     }
-
-    return wordInfo
+    return []
   }
 
+  // Delegate clue display and management to create mode clue management controller
   displayCluesSuggestions(clues, wordInfo) {
-    const cluesPanel = this.element.querySelector('.clues-suggestions')
-    if (!cluesPanel) return
-
-    // Filter out clues that have already been used
-    const availableClues = clues.filter(clue => !this.usedClueIds.has(clue.id.toString()))
-
-    // Create a unique key for this word position
-    const wordKey = `${wordInfo.startRow},${wordInfo.startCol},${wordInfo.direction}`
-    const currentAppliedClue = this.appliedClues.get(wordKey)
-
-    let html = `
-      <div class="clues-header">
-        <h4>Matching Clues</h4>
-        <p>Word: ${wordInfo.number} ${wordInfo.direction} (${wordInfo.length} letters)</p>
-        <p>Pattern: ${wordInfo.pattern.replace(/_/g, '□')}</p>
-      </div>
-    `
-
-    // If there's already a clue applied to this word, show undo option
-    if (currentAppliedClue) {
-      html += `
-        <div class="current-clue">
-          <h5>Current Clue:</h5>
-          <div class="clue-item applied">
-            <div class="clue-text">${currentAppliedClue.clueText}</div>
-            <div class="clue-answer">${currentAppliedClue.answer} (${currentAppliedClue.answer.length})</div>
-          </div>
-          <button class="btn btn-sm btn-outline-warning undo-clue-btn" data-word-key="${wordKey}">
-            Undo This Clue
-          </button>
-        </div>
-        <hr>
-      `
-    }
-
-    if (availableClues.length === 0) {
-      html += '<p class="no-clues">No unused matching clues found</p>'
-    } else {
-      html += '<div class="clues-list">'
-      availableClues.forEach(clue => {
-        let completionInfo = ''
-        if (clue.completed_intersections && clue.completed_intersections.length > 0) {
-          const completions = clue.completed_intersections.map(comp => 
-            `${comp.number} ${comp.direction}: "${comp.clue_text}"`
-          ).join(', ')
-          completionInfo = `<div class="completion-info">✅ Will complete: ${completions}</div>`
-        }
-        
-        html += `
-          <div class="clue-item clickable" data-clue-id="${clue.id}" data-answer="${clue.answer}" data-completions='${JSON.stringify(clue.completed_intersections || [])}'>
-            <div class="clue-text">${clue.clue_text}</div>
-            <div class="clue-answer">${clue.answer} (${clue.answer.length})</div>
-            ${completionInfo}
-          </div>
-        `
-      })
-      html += '</div>'
-    }
-
-    cluesPanel.innerHTML = html
-
-    // Add event listeners for clickable clue items
-    cluesPanel.querySelectorAll('.clue-item.clickable').forEach(item => {
-      item.addEventListener('click', (e) => {
-        const clueId = item.dataset.clueId
-        const answer = item.dataset.answer
-        const completions = JSON.parse(item.dataset.completions || '[]')
-        this.useClueForCurrentWord(clueId, answer, wordInfo, completions)
-      })
-    })
-
-    // Add event listener for undo button
-    const undoBtn = cluesPanel.querySelector('.undo-clue-btn')
-    if (undoBtn) {
-      undoBtn.addEventListener('click', (e) => {
-        const wordKey = e.target.dataset.wordKey
-        this.undoClueForWord(wordKey, wordInfo)
-      })
-    }
+    this.delegateToController('create-mode-clue-management', 'displayCluesSuggestions', clues, wordInfo)
   }
 
   useClueForCurrentWord(clueId, answer, wordInfo, completions = []) {
-    console.log('🎯 Applying clue:', answer, 'with completions:', completions)
-    
-    // Add this clue to the used clues set
-    this.usedClueIds.add(clueId.toString())
-
-    // Create a unique key for this word position
-    const wordKey = `${wordInfo.startRow},${wordInfo.startCol},${wordInfo.direction}`
-    
-    // If there was already a clue applied to this word, remove it from used clues
-    const previousClue = this.appliedClues.get(wordKey)
-    if (previousClue) {
-      this.usedClueIds.delete(previousClue.clueId.toString())
-    }
-
-    // Store the applied clue information
-    this.appliedClues.set(wordKey, {
-      clueId: clueId,
-      clueText: this.element.querySelector(`[data-clue-id="${clueId}"] .clue-text`).textContent,
-      answer: answer,
-      wordInfo: { ...wordInfo }
-    })
-
-    // Fill in the answer in the grid
-    if (wordInfo.direction === 'across') {
-      for (let i = 0; i < answer.length; i++) {
-        const col = wordInfo.startCol + i
-        if (col < this.gridWidth) {
-          this.setCellValue(wordInfo.startRow, col, answer[i])
-        }
-      }
-    } else {
-      for (let i = 0; i < answer.length; i++) {
-        const row = wordInfo.startRow + i
-        if (row < this.gridHeight) {
-          this.setCellValue(row, wordInfo.startCol, answer[i])
-        }
-      }
-    }
-
-    // Process any completed intersections
-    completions.forEach(completion => {
-      console.log('🔗 Auto-applying completed intersection:', completion)
-      
-      // Mark this clue as used
-      this.usedClueIds.add(completion.clue_id.toString())
-      
-      // Find the word info for this intersecting word
-      const intersectingWordInfo = this.findWordInfoByNumber(completion.number, completion.direction)
-      if (intersectingWordInfo) {
-        const intersectingWordKey = `${intersectingWordInfo.startRow},${intersectingWordInfo.startCol},${intersectingWordInfo.direction}`
-        
-        // Store the applied clue information
-        this.appliedClues.set(intersectingWordKey, {
-          clueId: completion.clue_id,
-          clueText: completion.clue_text,
-          answer: completion.answer,
-          wordInfo: { ...intersectingWordInfo },
-          autoApplied: true // Mark as automatically applied
-        })
-        
-        console.log('✅ Auto-applied clue for', completion.number, completion.direction, ':', completion.answer)
-      }
-    })
-
-    // Save the clue association to the puzzle (if we have a puzzle ID)
-    if (this.puzzleIdValue) {
-      this.savePuzzleClue(clueId, wordInfo.number, wordInfo.direction)
-    }
-    
-    // Refresh the clues suggestions to show the undo option
-    this.displayCluesSuggestions([], wordInfo)
-    
-    // Update the clues preview
-    this.updateCluesPreview()
+    this.delegateToController('create-mode-clue-management', 'useClueForCurrentWord', clueId, answer, wordInfo, completions)
   }
 
   findWordInfoByNumber(number, direction) {
-    // Search through the grid to find the word with this number and direction
-    for (let row = 0; row < this.gridHeight; row++) {
-      for (let col = 0; col < this.gridWidth; col++) {
-        const cell = this.getCell(row, col)
-        if (cell && cell.dataset.number == number) {
-          // Check if this cell starts a word in the specified direction
-          const wordInfo = this.getWordInfoAt(row, col, direction)
-          if (wordInfo && wordInfo.number == number && wordInfo.direction === direction) {
-            return wordInfo
-          }
-        }
-      }
-    }
-    return null
+    return this.delegateToController('create-mode-clue-management', 'findWordInfoByNumber', number, direction) || null
   }
 
   savePuzzleClue(clueId, number, direction) {
-    fetch('/crossword_game/save_puzzle_clue', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
-      },
-      body: JSON.stringify({
-        puzzle_id: this.puzzleIdValue,
-        clue_id: clueId,
-        number: number,
-        direction: direction
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        console.log(`Saved clue ${clueId} for word ${number} ${direction}`)
-      } else {
-        console.error('Failed to save puzzle clue:', data.error)
-      }
-    })
-    .catch(error => {
-      console.error('Error saving puzzle clue:', error)
-    })
+    this.delegateToController('create-mode-clue-management', 'savePuzzleClue', clueId, number, direction)
   }
 
   undoClueForWord(wordKey, currentWordInfo) {
-    const appliedClue = this.appliedClues.get(wordKey)
-    if (!appliedClue) return
-
-    // Remove the clue from used clues set
-    this.usedClueIds.delete(appliedClue.clueId.toString())
-
-    // Remove the clue from applied clues
-    this.appliedClues.delete(wordKey)
-
-    // Clear letters that are unique to this word (not part of intersecting words)
-    const wordInfo = appliedClue.wordInfo
-    const positions = this.getWordPositions(wordInfo)
-    
-    positions.forEach(({row, col}) => {
-      // Check if this position is part of any other applied clue
-      if (!this.isPositionUsedByOtherClues(row, col, wordKey)) {
-        this.setCellValue(row, col, '')
-      }
-    })
-
-    // Refresh the clues suggestions
-    const clueController = this.application.getControllerForElementAndIdentifier(this.element, 'clue-suggestions')
-    if (clueController) {
-      const currentWord = this.getCurrentWordInfo()
-      clueController.updateCluesSuggestions(currentWordInfo.startRow, currentWordInfo.startCol, currentWord, this.gridData)
-    }
-    
-    // Update the clues preview
-    this.updateCluesPreview()
+    this.delegateToController('create-mode-clue-management', 'undoClueForWord', wordKey, currentWordInfo)
   }
 
   clearCluesSuggestions() {
-    const cluesPanel = this.element.querySelector('.clues-suggestions')
-    if (cluesPanel) {
-      cluesPanel.innerHTML = '<p class="no-selection">Select a word to see matching clues</p>'
-    }
+    this.delegateToController('create-mode-clue-management', 'clearCluesSuggestions')
   }
 
   updateCluesPreview() {
     // Skip clues preview update in play mode - clues are server-rendered
     if (this.modeValue === 'play') return
     
-    const acrossList = this.element.querySelector('#across-clues-list')
-    const downList = this.element.querySelector('#down-clues-list')
-    
-    if (!acrossList || !downList) return
-
-    const acrossClues = []
-    const downClues = []
-    const numbering = this.calculateGridNumbering(this.gridData)
-
-    // Collect all applied clues organized by number and direction
-    for (const [wordKey, appliedClue] of this.appliedClues.entries()) {
-      const wordInfo = appliedClue.wordInfo
-      const wordNumber = numbering[`${wordInfo.startRow},${wordInfo.startCol}`]
-      
-      if (wordNumber) {
-        const clueEntry = {
-          number: wordNumber,
-          clueText: appliedClue.clueText,
-          answer: appliedClue.answer
-        }
-        
-        if (wordInfo.direction === 'across') {
-          acrossClues.push(clueEntry)
-        } else {
-          downClues.push(clueEntry)
-        }
-      }
-    }
-
-    // Sort by number
-    acrossClues.sort((a, b) => a.number - b.number)
-    downClues.sort((a, b) => a.number - b.number)
-
-    // Update across clues
-    if (acrossClues.length === 0) {
-      acrossList.innerHTML = '<p class="no-clues-yet">No across clues yet</p>'
-    } else {
-      acrossList.innerHTML = acrossClues.map(clue => 
-        `<div class="clue-entry">
-          <span class="clue-number">${clue.number}.</span> ${clue.clueText}
-        </div>`
-      ).join('')
-    }
-
-    // Update down clues
-    if (downClues.length === 0) {
-      downList.innerHTML = '<p class="no-clues-yet">No down clues yet</p>'
-    } else {
-      downList.innerHTML = downClues.map(clue => 
-        `<div class="clue-entry">
-          <span class="clue-number">${clue.number}.</span> ${clue.clueText}
-        </div>`
-      ).join('')
-    }
-  }
-
-  // New methods for play mode clue functionality
-  loadCluesData() {
-    // First try to load clues data from the grid element's data attribute
-    const gridElement = this.element.querySelector('.crossword-interactive-grid')
-    if (gridElement && gridElement.dataset.clues) {
-      try {
-        this.cluesData = JSON.parse(gridElement.dataset.clues)
-        console.log('📋 Loaded clues data from grid element:', this.cluesData)
-        return
-      } catch (e) {
-        console.error('Failed to parse clues data:', e)
-      }
-    }
-
-    // Try to get clues data from clue display controller
-    const clueDisplayController = this.application.getControllerForElementAndIdentifier(this.element, 'clue-display')
-    if (clueDisplayController && clueDisplayController.cluesData) {
-      this.cluesData = clueDisplayController.cluesData
-      console.log('📋 Loaded clues data from clue display controller:', this.cluesData)
-      return
-    }
-
-    // Check if there's global clues data
-    if (window.cluesData) {
-      this.cluesData = window.cluesData
-      console.log('📋 Loaded clues data from window:', this.cluesData)
-      return
-    }
-
-    console.log('No clues data found anywhere')
-    this.cluesData = { across: [], down: [] }
-    
-    // In play mode, also set up protection for server-rendered clues
-    if (this.modeValue === 'play') {
-      this.protectServerRenderedClues()
-    }
-  }
-
-  protectServerRenderedClues() {
-    const acrossList = this.element.querySelector('#across-clues-list')
-    const downList = this.element.querySelector('#down-clues-list')
-    
-    if (acrossList && downList) {
-      // Store original innerHTML to prevent it from being cleared
-      const originalAcrossHTML = acrossList.innerHTML
-      const originalDownHTML = downList.innerHTML
-      
-      // Override innerHTML setter to prevent clearing in play mode
-      Object.defineProperty(acrossList, 'innerHTML', {
-        get: function() { return this._innerHTML || originalAcrossHTML },
-        set: function(value) {
-          // Silently ignore attempts to change innerHTML in play mode
-        }
-      })
-      
-      Object.defineProperty(downList, 'innerHTML', {
-        get: function() { return this._innerHTML || originalDownHTML },
-        set: function(value) {
-          // Silently ignore attempts to change innerHTML in play mode
-        }
-      })
-    }
-  }
-
-  handleClueClick(event) {
-    const clueItem = event.target.closest('.clue-item')
-    if (!clueItem) return
-
-    event.preventDefault()
-    
-    const direction = clueItem.dataset.direction
-    const number = parseInt(clueItem.dataset.number)
-    const row = parseInt(clueItem.dataset.row)
-    const col = parseInt(clueItem.dataset.col)
-
-    // Set direction and navigate to the clue's starting cell
-    this.direction = direction
-    this.selectCell(row, col)
-    this.setActiveClue(clueItem, direction, number)
-  }
-
-  setActiveClue(clueItem, direction, number) {
-    // Remove active class from all clue items
-    this.element.querySelectorAll('.clue-item').forEach(item => {
-      item.classList.remove('active')
-    })
-
-    // Add active class to clicked clue
-    clueItem.classList.add('active')
-
-    // Scroll the clue into view
-    this.scrollClueIntoView(clueItem)
-
-    // Update current clue display
-    const clueText = clueItem.querySelector('.clue-text').textContent
-    const clueLength = clueItem.querySelector('.clue-length').textContent
-    
-    this.updateCurrentClueDisplay(direction, number, clueText, clueLength)
-    this.currentClue = { direction, number, clueText }
-  }
-
-  scrollClueIntoView(clueItem) {
-    // Find the clues panel container
-    const cluesPanel = clueItem.closest('.clues-panel')
-    if (!cluesPanel) return
-
-    // Get the bounds of the clue item and container
-    const clueRect = clueItem.getBoundingClientRect()
-    const panelRect = cluesPanel.getBoundingClientRect()
-
-    // Check if the clue is outside the visible area
-    const isAbove = clueRect.top < panelRect.top
-    const isBelow = clueRect.bottom > panelRect.bottom
-
-    if (isAbove || isBelow) {
-      // Scroll the clue into view with some padding
-      clueItem.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      })
-    }
-  }
-
-  updateCurrentClueDisplay(direction, number, clueText, clueLength) {
-    const titleElement = this.element.querySelector('#current-clue-title')
-    const textElement = this.element.querySelector('#current-clue-text')
-
-    if (titleElement && textElement) {
-      titleElement.textContent = `${number} ${direction.charAt(0).toUpperCase() + direction.slice(1)}`
-      textElement.textContent = `${clueText} ${clueLength}`
-    }
-  }
-
-  updateCurrentClueFromPosition(row, col) {
-    if (!this.cluesData) return
-
-    // Find the clue that matches the current position and direction
-    const clues = this.cluesData[this.direction] || []
-    const matchingClue = clues.find(clue => {
-      if (this.direction === 'across') {
-        return clue.row === row && clue.col <= col && 
-               col < clue.col + clue.answer.length
-      } else {
-        return clue.col === col && clue.row <= row && 
-               row < clue.row + clue.answer.length
-      }
-    })
-
-    if (matchingClue) {
-      // Find and activate the corresponding clue item
-      const clueItem = this.element.querySelector(
-        `.clue-item[data-direction="${this.direction}"][data-number="${matchingClue.number}"]`
-      )
-      if (clueItem) {
-        this.setActiveClue(clueItem, this.direction, matchingClue.number)
-      }
-    }
+    this.delegateToController('create-mode-clue-management', 'updateCluesPreview')
   }
 
   // Puzzle validation and hint methods - delegate to play mode operations controller
   checkPuzzle() {
+    const cluesData = this.delegateToController('play-mode-clue-management', 'getCluesData')
     this.delegateToController('play-mode-operations', 'checkPuzzle', 
-                              this.cluesData, this.gridData, this.element.querySelector('.crossword-interactive-grid'))
+                              cluesData, this.gridData, this.element.querySelector('.crossword-interactive-grid'))
   }
 
   checkWord() {
+    const cluesData = this.delegateToController('play-mode-clue-management', 'getCluesData')
     this.delegateToController('play-mode-operations', 'checkWord', 
-                              this.selectedRow, this.selectedCol, this.cluesData, this.gridData, this.direction)
+                              this.selectedRow, this.selectedCol, cluesData, this.gridData, this.direction)
   }
 
   revealLetter() {
+    const cluesData = this.delegateToController('play-mode-clue-management', 'getCluesData')
     this.delegateToController('play-mode-operations', 'revealLetter', 
-                              this.selectedRow, this.selectedCol, this.cluesData, this.gridData, this.direction)
+                              this.selectedRow, this.selectedCol, cluesData, this.gridData, this.direction)
   }
 
   revealWord() {
+    const cluesData = this.delegateToController('play-mode-clue-management', 'getCluesData')
     this.delegateToController('play-mode-operations', 'revealWord', 
-                              this.selectedRow, this.selectedCol, this.cluesData, this.gridData, this.direction)
+                              this.selectedRow, this.selectedCol, cluesData, this.gridData, this.direction)
   }
 
   resetPuzzle() {
@@ -1788,135 +724,75 @@ export default class extends Controller {
   // Event handlers for play mode operations controller
   handleCellReveal(event) {
     const { row, col, value, message, messageType } = event.detail
-    this.setCellValue(row, col, value)
-    this.clearCellError(row, col)
+    this.delegateToController('ui-message-display', 'setCellValue', row, col, value)
+    this.delegateToController('ui-message-display', 'clearCellError', row, col)
     if (message) {
-      this.showMessage(message, messageType)
+      this.delegateToController('ui-message-display', 'showMessage', message, messageType)
     }
   }
 
   handleWordReveal(event) {
     const { clue, message, messageType } = event.detail
-    this.fillClueWord(clue)
+    this.delegateToController('ui-message-display', 'fillClueWord', clue)
     if (message) {
-      this.showMessage(message, messageType)
+      this.delegateToController('ui-message-display', 'showMessage', message, messageType)
     }
   }
 
   handlePuzzleReset(event) {
     const { message, messageType } = event.detail
     
-    // Clear all cells in the grid data
-    for (let row = 0; row < this.gridHeight; row++) {
-      for (let col = 0; col < this.gridWidth; col++) {
-        if (this.gridData[row][col] !== '#') {
-          this.gridData[row][col] = null
-          
-          // Update the cell display
-          const cell = this.getCellElement(row, col)
-          if (cell) {
-            cell.classList.remove('error')
-            // Keep the cell number but clear the letter
-            const existingNumber = cell.querySelector('.cell-number')
-            const numberHtml = existingNumber ? existingNumber.outerHTML : ''
-            cell.innerHTML = numberHtml
+    // Delegate to grid management controller to properly reset the grid
+    const gridController = this.getController('grid-management')
+    if (gridController) {
+      gridController.resetPuzzleGrid(this.gridData)
+    } else {
+      console.error('Grid management controller not found for puzzle reset')
+      // Fallback manual reset
+      for (let row = 0; row < this.gridHeight; row++) {
+        for (let col = 0; col < this.gridWidth; col++) {
+          if (this.gridData[row][col] !== '#') {
+            this.gridData[row][col] = null
+            
+            // Update the cell display
+            const cell = this.getCellElement(row, col)
+            if (cell) {
+              cell.classList.remove('error', 'correct')
+              // Keep the cell number but clear the letter
+              const existingNumber = cell.querySelector('.cell-number')
+              const numberHtml = existingNumber ? existingNumber.outerHTML : ''
+              cell.innerHTML = numberHtml
+            }
           }
         }
       }
+      
+      // Update the grid data input field
+      this.updateGridData()
     }
     
-    // Update the grid data input field
-    this.updateGridData()
+    // Clear any current selection and highlights
+    if (this.selectedCell) {
+      this.selectedCell.classList.remove('selected')
+      this.selectedCell = null
+      this.selectedRow = null
+      this.selectedCol = null
+    }
+    this.clearHighlights()
     
     // Show success message
     if (message) {
-      this.showMessage(message, messageType)
+      this.delegateToController('ui-message-display', 'showMessage', message, messageType)
     }
   }
 
   handlePuzzleCompleted(event) {
-    this.showPuzzleCompletedMessage()
+    this.delegateToController('ui-message-display', 'showPuzzleCompletedMessage')
   }
 
   handleShowMessage(event) {
     const { text, type } = event.detail
-    this.showMessage(text, type)
-  }
-
-  // Helper methods that are still needed for delegation
-  setCellValue(row, col, value) {
-    const gridController = this.application.getControllerForElementAndIdentifier(this.element, 'grid-management')
-    if (gridController) {
-      gridController.setCellValue(row, col, value, this.gridData)
-    }
-  }
-
-  clearCellError(row, col) {
-    const cell = this.getCellElement(row, col)
-    if (cell) {
-      cell.classList.remove('error')
-    }
-  }
-
-  fillClueWord(clue) {
-    for (let i = 0; i < clue.answer.length; i++) {
-      let fillRow, fillCol
-      if (clue.direction === 'across') {
-        fillRow = clue.row
-        fillCol = clue.col + i
-      } else {
-        fillRow = clue.row + i
-        fillCol = clue.col
-      }
-
-      this.setCellValue(fillRow, fillCol, clue.answer[i])
-      this.clearCellError(fillRow, fillCol)
-    }
-  }
-
-  showPuzzleCompletedMessage() {
-    const message = document.createElement('div')
-    message.className = 'puzzle-completed-message'
-    message.innerHTML = `
-      <div class="completion-content">
-        <h2>🎉 Congratulations! 🎉</h2>
-        <p>You've completed the puzzle!</p>
-        <button class="btn btn-primary" onclick="this.parentElement.parentElement.remove()">
-          Continue
-        </button>
-      </div>
-    `
-    
-    // Add to the page
-    document.body.appendChild(message)
-    
-    // Auto-remove after 10 seconds
-    setTimeout(() => {
-      if (message.parentElement) {
-        message.remove()
-      }
-    }, 10000)
-  }
-
-  showMessage(text, type = 'info') {
-    const message = document.createElement('div')
-    message.className = `alert alert-${type} puzzle-message`
-    message.textContent = text
-    
-    // Find a good place to show the message
-    const controls = this.element.querySelector('.game-controls')
-    if (controls) {
-      controls.appendChild(message)
-    } else {
-      document.body.appendChild(message)
-    }
-    
-    // Auto-remove after 3 seconds
-    setTimeout(() => {
-      if (message.parentElement) {
-        message.remove()
-      }
-    }, 3000)
+    this.delegateToController('ui-message-display', 'showMessage', text, type)
   }
 
 }
