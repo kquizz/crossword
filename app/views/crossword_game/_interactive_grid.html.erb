@@ -1,8 +1,21 @@
 <div class="crossword-game-container" 
-     data-controller="crossword-game"
+     data-controller="crossword-game zoom navigation clue-suggestions clue-display grid-management play-mode-operations"
      data-crossword-game-mode-value="<%= @mode %>"
      data-crossword-game-puzzle-id-value="<%= @puzzle&.id %>"
-     data-crossword-game-grid-value="<%= @grid.to_json %>">
+     data-play-mode-operations-mode-value="<%= @mode %>"
+     data-play-mode-operations-puzzle-id-value="<%= @puzzle&.id %>"
+     data-crossword-game-grid-value="<%= @grid.to_json %>"
+     data-zoom-grid-width-value="<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>"
+     data-zoom-grid-height-value="<%= @grid.is_a?(Array) ? @grid.length : 15 %>"
+     data-navigation-grid-width-value="<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>"
+     data-navigation-grid-height-value="<%= @grid.is_a?(Array) ? @grid.length : 15 %>"
+     data-navigation-mode-value="<%= @mode %>"
+     data-clue-display-mode-value="<%= @mode %>"
+     data-clue-suggestions-mode-value="<%= @mode %>"
+     data-clue-suggestions-puzzle-id-value="<%= @puzzle&.id %>"
+     data-grid-management-grid-width-value="<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>"
+     data-grid-management-grid-height-value="<%= @grid.is_a?(Array) ? @grid.length : 15 %>"
+     data-grid-management-mode-value="<%= @mode %>">
   <div class="game-header">
     <% if @mode == 'create' %>
       <h2>Create New Crossword Puzzle</h2>
