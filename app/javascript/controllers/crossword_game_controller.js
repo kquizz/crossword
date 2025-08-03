@@ -383,12 +383,6 @@ export default class extends Controller {
 
     const context = this.getKeydownContext(event)
     
-    // Handle modifier key combinations (only in letter mode)
-    if (context.isShiftModifier && !context.isBlockMode) {
-      this.handleShiftModifierKey(event)
-      return
-    }
-
     // Handle keys based on mode
     if (context.isBlockMode) {
       this.handleBlockModeKey(event, context)
@@ -412,14 +406,6 @@ export default class extends Controller {
       isBlockMode: this.modeValue === 'create' && this.isBlockMode,
       isPlayMode: this.modeValue === 'play',
       isCreateMode: this.modeValue === 'create'
-    }
-  }
-
-  handleShiftModifierKey(event) {
-    event.preventDefault()
-    const navigationController = this.getController('navigation')
-    if (navigationController) {
-      navigationController.moveToPreviousWord()
     }
   }
 
@@ -512,7 +498,7 @@ export default class extends Controller {
       'Backspace': (context) => this.handleDeleteKey(context, true),
       'Delete': (context) => this.handleDeleteKey(context, true),
       ' ': (context) => this.handleSpaceKey(context),
-      'Tab': (context) => this.handleTabKey(context)
+      'Tab': (context, event) => this.handleTabKey(context, event)
     }
   }
 
@@ -566,10 +552,10 @@ export default class extends Controller {
   }
 
   handleTabKey(context, event) {
-    console.log('Tab pressed, shiftKey:', context.isShiftModifier, 'mode:', this.modeValue)
+    console.log('Tab pressed, shiftKey:', event.shiftKey, 'mode:', this.modeValue)
     if (context.isPlayMode) {
       // In play mode, use unfilled word navigation
-      if (context.isShiftModifier) {
+      if (event.shiftKey) {
         console.log('Calling moveToPreviousUnfilledWord')
         this.moveToPreviousUnfilledWord()
       } else {
@@ -580,7 +566,7 @@ export default class extends Controller {
       // In create mode, use basic word navigation
       const navigationController = this.getController('navigation')
       if (navigationController) {
-        if (context.isShiftModifier) {
+        if (event.shiftKey) {
           navigationController.moveToPreviousWord()
         } else {
           navigationController.moveToNextWord()
@@ -824,9 +810,51 @@ export default class extends Controller {
 
   clearGrid() {
     if (confirm('Are you sure you want to clear the entire grid?')) {
-      // Delegate to grid management controller
-      this.delegateToController('grid-management', 'clearGrid', this.gridData)
+      if (this.modeValue === 'play') {
+        // In play mode, clear all user entries but keep the grid structure
+        this.clearUserEntries()
+      } else {
+        // In create mode, delegate to grid management controller for full clear
+        this.delegateToController('grid-management', 'clearGrid', this.gridData)
+      }
     }
+  }
+
+  clearUserEntries() {
+    // Clear all user-entered letters while preserving the grid structure
+    for (let row = 0; row < this.gridHeight; row++) {
+      for (let col = 0; col < this.gridWidth; col++) {
+        if (this.gridData[row][col] && this.gridData[row][col] !== '#') {
+          // Clear the letter but keep any block structure
+          this.gridData[row][col] = null
+          const cell = this.getCellElement(row, col)
+          if (cell && !cell.classList.contains('blocked')) {
+            // Keep the cell number but remove the letter
+            const existingNumber = cell.querySelector('.cell-number')
+            const numberHtml = existingNumber ? existingNumber.outerHTML : ''
+            cell.innerHTML = numberHtml
+            cell.classList.remove('error', 'correct')
+          }
+        }
+      }
+    }
+    
+    // Update the grid data
+    this.updateGridData()
+    
+    // Save the cleared state to server if in play mode
+    if (this.puzzleIdValue) {
+      this.delegateToController('play-mode-operations', 'saveClearedPuzzle')
+    }
+    
+    // Clear any selection and highlights
+    if (this.selectedCell) {
+      this.selectedCell.classList.remove('selected')
+      this.selectedCell = null
+      this.selectedRow = null
+      this.selectedCol = null
+    }
+    this.clearHighlights()
   }
 
   // Event handlers for navigation controller

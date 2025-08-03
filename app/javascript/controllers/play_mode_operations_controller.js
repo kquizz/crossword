@@ -198,67 +198,73 @@ export default class extends Controller {
 
   // Move to previous unfilled word
   moveToPreviousUnfilledWord(cluesData, gridData, currentDirection, currentRow, currentCol) {
-    if (!cluesData) return null
+    console.log('Play mode controller: moveToPreviousUnfilledWord called with:', {
+      cluesData: cluesData ? 'present' : 'null',
+      gridData: gridData ? 'present' : 'null',
+      currentDirection,
+      currentRow,
+      currentCol
+    })
+    
+    if (!cluesData) {
+      console.log('No cluesData provided to moveToPreviousUnfilledWord')
+      return null
+    }
+    
+    console.log(`moveToPreviousUnfilledWord: Looking for previous unfilled word from position (${currentRow}, ${currentCol}) in direction ${currentDirection}`)
 
     const words = currentDirection === 'across' ? cluesData.across : cluesData.down
     
     // Find the current clue to know where we are
     const currentClue = this.getCurrentClueFromPosition(currentRow, currentCol, cluesData, currentDirection)
-    let foundCurrent = false
-    let lastUnfilledWord = null
+    console.log('Current clue:', currentClue)
     
-    // Go through words in reverse order to find the previous unfilled word
-    for (let i = words.length - 1; i >= 0; i--) {
-      const clue = words[i]
-      
+    let foundCurrent = false
+    let previousUnfilledWord = null
+    
+    // Go through words in forward order to find unfilled words before current position
+    for (const clue of words) {
       // If this is our current clue, stop searching (we want the previous one)
       if (currentClue && clue.number === currentClue.number && clue.direction === currentClue.direction) {
         foundCurrent = true
-        if (lastUnfilledWord) {
-          return lastUnfilledWord
-        }
+        console.log(`Found current clue: ${clue.number} ${clue.direction}`)
         break
       }
       
-      // Check if this word is unfilled
+      // Check if this word is unfilled (this comes before our current position)
+      console.log(`Checking if clue ${clue.number} ${clue.direction} is complete:`, this.isClueWordComplete(clue, gridData))
       if (!this.isClueWordComplete(clue, gridData)) {
         const firstEmptyPos = this.getFirstEmptyPosition(clue, gridData)
         if (firstEmptyPos) {
-          lastUnfilledWord = {
+          previousUnfilledWord = {
             row: firstEmptyPos.row,
             col: firstEmptyPos.col,
             direction: currentDirection
           }
+          console.log(`Found potential previous unfilled word: ${clue.number} ${clue.direction} at (${firstEmptyPos.row}, ${firstEmptyPos.col})`)
         }
       }
     }
     
-    // If we didn't find current clue or no previous unfilled word, look in reverse order from end
-    if (!foundCurrent || !lastUnfilledWord) {
-      for (let i = words.length - 1; i >= 0; i--) {
-        const clue = words[i]
-        if (!this.isClueWordComplete(clue, gridData)) {
-          const firstEmptyPos = this.getFirstEmptyPosition(clue, gridData)
-          if (firstEmptyPos) {
-            return {
-              row: firstEmptyPos.row,
-              col: firstEmptyPos.col,
-              direction: currentDirection
-            }
-          }
-        }
-      }
+    // If we found a previous unfilled word in the current direction, return it
+    if (foundCurrent && previousUnfilledWord) {
+      console.log(`Returning previous unfilled word in ${currentDirection}`)
+      return previousUnfilledWord
     }
+    
+    console.log(`No previous unfilled words in ${currentDirection}, trying other direction`)
 
-    // If no unfilled words in current direction, try the other direction
+    // If no previous unfilled words in current direction, try the other direction (from end)
     const otherDirection = currentDirection === 'across' ? 'down' : 'across'
     const otherWords = otherDirection === 'across' ? cluesData.across : cluesData.down
     
+    // Go through other direction in reverse order to find the last unfilled word
     for (let i = otherWords.length - 1; i >= 0; i--) {
       const clue = otherWords[i]
       if (!this.isClueWordComplete(clue, gridData)) {
         const firstEmptyPos = this.getFirstEmptyPosition(clue, gridData)
         if (firstEmptyPos) {
+          console.log(`Found unfilled word in other direction: ${clue.number} ${clue.direction} at (${firstEmptyPos.row}, ${firstEmptyPos.col})`)
           return {
             row: firstEmptyPos.row,
             col: firstEmptyPos.col,
@@ -268,6 +274,7 @@ export default class extends Controller {
       }
     }
 
+    console.log('No unfilled words found anywhere')
     return null
   }
 
