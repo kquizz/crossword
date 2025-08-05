@@ -1,0 +1,40 @@
+<!-- filepath: /Users/kquillen/Code/games/crossword/app/views/turbo_game/_cell.html.erb -->
+<div class="crossword-cell <%= 'selected' if selected %>" 
+     data-action="click->turbo-crossword#selectCell"
+     data-row="<%= row %>" 
+     data-col="<%= col %>">
+  <% if value == '#' %>
+      <div style="width: 100%; height: 100%; background-color: black;"></div>
+  <% else %>
+      <%= value %>
+  <% end %>
+</div>
+
+<style>
+  .crossword-cell {
+    width: 100%;
+    height: 100%;
+    background-color: white;
+    border: 1px solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .crossword-cell.selected {
+    background-color: #007bff;
+    color: white;
+  }
+
+  .crossword-cell:hover {
+    background-color: #f0f0f0;
+  }
+
+  .crossword-cell.selected:hover {
+    background-color: #0056b3;
+  }
+</style>

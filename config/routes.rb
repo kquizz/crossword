@@ -25,6 +25,18 @@ Rails.application.routes.draw do
       post :search
     end
   end
+  resources :turbo_game, only: [] do
+    collection do
+      get :play
+      post :update_cell
+      post :select_cell
+    end
+
+    member do
+      get :play
+    end
+  end
+
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

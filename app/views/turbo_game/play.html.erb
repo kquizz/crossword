@@ -1,0 +1,48 @@
+<!-- filepath: /Users/kquillen/Code/games/crossword/app/views/turbo_game/play.html.erb -->
+<% content_for :title, @puzzle&.title || 'Turbo Crossword' %>
+
+<div class="turbo-crossword-game" 
+     data-controller="turbo-crossword"
+     data-turbo-crossword-puzzle-id-value="<%= @puzzle&.id %>"
+     data-turbo-crossword-mode-value="<%= @mode %>">
+
+  <div class="game-header">
+    <h1><%= @puzzle&.title || 'Crossword Puzzle' %></h1>
+    <p class="game-description"><%= @puzzle&.description if @puzzle&.description.present? %></p>
+  </div>
+
+  <div class="game-container">
+    <%= render 'grid', grid: @grid %>
+    
+  </div>
+
+</div>
+
+<style>
+  .turbo-crossword-game {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .game-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+
+  .crossword-grid {
+    display: grid;
+    grid-template-columns: repeat(15, 40px);
+    grid-template-rows: repeat(15, 40px);
+    gap: 1px;
+    background-color: #000;
+    border: 2px solid #000;
+    margin: 0 auto;
+    width: fit-content;
+  }
+
+  .grid-cell-container {
+    width: 40px;
+    height: 40px;
+  }
+</style>
