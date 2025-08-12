@@ -57,6 +57,8 @@ class NytCrosswordScraper
         ) do |c|
           c.difficulty = determine_difficulty(clue_info[:answer])
           c.category = category
+          c.length = clue_info[:answer].length
+          c.date_used = @date.is_a?(String) ? Date.strptime(@date, "%m-%d-%y") : @date
         end
         saved_count += 1 if clue.persisted?
       end
@@ -69,6 +71,8 @@ class NytCrosswordScraper
         ) do |c|
           c.difficulty = determine_difficulty(clue_info[:answer])
           c.category = category
+          c.length = clue_info[:answer].length
+          c.date_used = @date.is_a?(String) ? Date.strptime(@date, "%m-%d-%y") : @date
         end
         saved_count += 1 if clue.persisted?
       end
@@ -93,27 +97,26 @@ class NytCrosswordScraper
 
       # Parse the text content of the UL
       text_content = ul_element.text
-
       # Split by lines and process each potential clue
       text_content.split("\n").each do |line|
-        line = line.strip
-        next if line.empty?
+              line = line.strip
+              next if line.empty?
+              puts "DEBUG: Clue line: '#{line}'"
 
-        # Parse clue format: "1 [Clue text]ANSWER" or "1 Clue textANSWER"
-        # Handle both formats: with quotes and brackets
-        if match = line.match(/^(\d+)\s*["""]?([^"""\[\]]+?)["""]?\s*([A-Z]+)$/)
-          number = match[1].to_i
-          clue_text = match[2].strip
-          answer = match[3].strip.upcase
+              # New regex: clue text followed by answer (3+ uppercase letters) at end of line
+              if match = line.match(/^(.*?)([A-Z]{3,})$/)
+                clue_text = match[1].strip
+                answer = match[2].strip.upcase
 
-          clues << {
-            number: number,
-            clue: clue_text,
-            answer: answer,
-            direction: section_name.downcase == "across" ? "across" : "down"
-          }
-        end
-      end
+                clues << {
+                  clue: clue_text,
+                  answer: answer,
+                  direction: section_name.downcase == "across" ? "across" : "down"
+                }
+              else
+                puts "DEBUG: No match for line: '#{line}'"
+              end
+            end
 
       clues
     end

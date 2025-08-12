@@ -12,6 +12,8 @@ export default class extends Controller {
   connect() {
     this.initializeGrid()
     this.bindEvents()
+
+    this.element.addEventListener('update-clues-preview', this.handleUpdateCluesPreview.bind(this))
     
     // Initialize the clues preview
     if (this.modeValue === 'create') {

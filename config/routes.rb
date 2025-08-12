@@ -10,6 +10,7 @@ Rails.application.routes.draw do
   post "crossword_game/save_puzzle_clue", to: "crossword_game#save_puzzle_clue"
   patch "crossword_game/update_cell", to: "crossword_game#update_cell"
   patch "crossword_game/reset_puzzle", to: "crossword_game#reset_puzzle"
+  post "crossword_game/generate", to: "crossword_game#generate"
 
   resources :puzzles do
     member do

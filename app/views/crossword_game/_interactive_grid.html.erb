@@ -69,6 +69,7 @@
           <button type="button" class="btn btn-sm btn-outline-primary" id="clear-grid-btn">
             Clear Grid
           </button>
+          <button type="button" class="btn btn-success" id="generate-btn" style="margin-left: 1rem;">Generate</button>
         </div>
       <% else %>
         <div class="play-controls">
@@ -139,11 +140,12 @@
         <div class="crossword-interactive-grid"
              data-mode="<%= @mode %>"
              data-puzzle-id="<%= @puzzle&.id %>"
-             data-grid="<%= @grid.is_a?(Array) ? @grid.to_json : '[]' %>"
-             style="grid-template-columns: repeat(<%= @grid.is_a?(Array) ? (@grid.first&.length || 15) : 15 %>, 1fr);">
-          <% if @grid.is_a?(Array) %>
-            <% numbering = calculate_grid_numbering(@solution_grid || @grid) %>
-            <% @grid.each_with_index do |row, row_index| %>
+             data-grid="<%= (@solution_grid || @grid).is_a?(Array) ? (@solution_grid || @grid).to_json : '[]' %>"
+             style="grid-template-columns: repeat(<%= (@solution_grid || @grid).is_a?(Array) ? ((@solution_grid || @grid).first&.length || 15) : 15 %>, 1fr);">
+          <% grid_to_display = @solution_grid || @grid %>
+          <% if grid_to_display.is_a?(Array) %>
+            <% numbering = calculate_grid_numbering(grid_to_display) %>
+            <% grid_to_display.each_with_index do |row, row_index| %>
               <% row.each_with_index do |cell, col_index| %>
                 <div class="crossword-cell interactive <%= 'blocked' if cell == '#' %>"
                      data-row="<%= row_index %>"
@@ -163,7 +165,7 @@
             <% end %>
           <% else %>
             <div class="error-message">
-              Error: Grid data is not an array. Type: <%= @grid.class %>, Value: <%= @grid.inspect %>
+              Error: Grid data is not an array. Type: <%= grid_to_display.class %>, Value: <%= grid_to_display.inspect %>
             </div>
           <% end %>
         </div>

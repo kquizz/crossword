@@ -9,6 +9,68 @@ export default class extends Controller {
 
   connect() {
     console.log("Grid Management Controller connected")
+
+    // Ensure grid-data input is updated before form submit or Generate button click
+    setTimeout(() => {
+      const gridInput = document.getElementById('grid-data')
+      const puzzleForm = gridInput?.closest('form')
+      if (puzzleForm) {
+        puzzleForm.addEventListener('submit', (e) => {
+          if (gridInput && window.gridData) {
+            gridInput.value = JSON.stringify(window.gridData)
+          }
+        })
+      }
+      const generateBtn = document.getElementById('generate-btn')
+      if (generateBtn) {
+        generateBtn.addEventListener('click', (event) => {
+          event.preventDefault(); // Prevent form submit/page reload
+          // Always use the latest grid from the hidden input
+          const gridInput = document.getElementById('grid-data');
+          let gridData = [];
+          if (gridInput && gridInput.value) {
+            try {
+              gridData = JSON.parse(gridInput.value);
+            } catch (e) {
+              gridData = window.gridData || this.gridData;
+            }
+          } else {
+            gridData = window.gridData || this.gridData;
+          }
+          const width = gridData[0]?.length || 15;
+            const height = gridData.length || 15;
+
+            // Get title, description, and difficulty from the form (or DOM)
+            const title = document.getElementById('puzzle_title')?.value || '';
+            const description = document.getElementById('puzzle_description')?.value || '';
+            const difficulty = document.getElementById('puzzle_difficulty')?.value || '';
+
+            // Calculate numbering
+            const numbering = this.calculateGridNumbering(gridData);
+            fetch('/crossword_game/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ 
+              grid: JSON.stringify(gridData), 
+              numbering: JSON.stringify(numbering), 
+              width, 
+              height,
+              title,
+              description,
+              difficulty
+            })
+            })
+            .then(response => response.text())
+            .then(html => {
+            // Replace the page content with the response (or handle as needed)
+            document.body.innerHTML = html;
+          });
+        });
+      }
+    }, 100)
   }
 
   // Generate an empty grid with default dimensions
@@ -73,7 +135,13 @@ export default class extends Controller {
 
     gridData[row][col] = newValue
     this.updateCellDisplay(row, col, gridData)
-    
+
+    // Update hidden grid input so backend receives correct grid
+    const gridInput = document.getElementById('grid-data')
+    if (gridInput) {
+      gridInput.value = JSON.stringify(gridData)
+    }
+
     // Notify main controller that grid data changed
     const event = new CustomEvent('grid-data-updated', {
       detail: { gridData, needsNumberingUpdate: this.modeValue === 'create' },

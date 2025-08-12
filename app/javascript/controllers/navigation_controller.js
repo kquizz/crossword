@@ -44,6 +44,12 @@ export default class extends Controller {
     }
   }
 
+  getWordDirection = (row, col) => {
+    if (this.isWordStart(row, col, 'across')) return 'across';
+    if (this.isWordStart(row, col, 'down')) return 'down';
+    return null;
+  };
+
   // Move to next word start
   moveToNextWord() {
     const currentRow = this.selectedRow
@@ -51,78 +57,104 @@ export default class extends Controller {
     
     // Find the next word start anywhere in the grid
     let foundNextWord = false
-    
+
+
     // Start searching from current position
     for (let row = 0; row < this.gridHeightValue; row++) {
       for (let col = 0; col < this.gridWidthValue; col++) {
         // Skip positions before current position
         if (row < currentRow || (row === currentRow && col <= currentCol)) {
-          continue
+          continue;
         }
-        
-        // Check if this position starts a word in the current direction
-        if (this.isWordStart(row, col, this.direction)) {
+
+        // Check if this position starts a word in any direction
+        let wordDir = null;
+        if (this.isWordStart(row, col, 'across')) wordDir = 'across';
+        else if (this.isWordStart(row, col, 'down')) wordDir = 'down';
+
+        if (wordDir) {
+          // Always set direction to match the word
+          if (this.direction !== wordDir) {
+            this.direction = wordDir;
+            this.updateDirectionIndicator();
+            const directionEvent = new CustomEvent('direction-changed', {
+              detail: { direction: this.direction },
+              bubbles: true
+            });
+            this.element.dispatchEvent(directionEvent);
+          }
           const event = new CustomEvent('move-to-cell', {
             detail: { row: row, col: col },
             bubbles: true
-          })
-          this.element.dispatchEvent(event)
-          foundNextWord = true
-          break
+          });
+          this.element.dispatchEvent(event);
+          foundNextWord = true;
+          break;
         }
       }
-      if (foundNextWord) break
+      if (foundNextWord) break;
     }
-    
+
     // If no word found after current position, wrap around from beginning
     if (!foundNextWord) {
       for (let row = 0; row < this.gridHeightValue; row++) {
         for (let col = 0; col < this.gridWidthValue; col++) {
           // Skip positions after current position (we already checked those)
           if (row > currentRow || (row === currentRow && col >= currentCol)) {
-            continue
+            continue;
           }
-          
-          // Check if this position starts a word in the current direction
-          if (this.isWordStart(row, col, this.direction)) {
+
+          let wordDir = null;
+          if (this.isWordStart(row, col, 'across')) wordDir = 'across';
+          else if (this.isWordStart(row, col, 'down')) wordDir = 'down';
+
+          if (wordDir) {
+            // Always set direction to match the word
+            if (this.direction !== wordDir) {
+              this.direction = wordDir;
+              this.updateDirectionIndicator();
+              const directionEvent = new CustomEvent('direction-changed', {
+                detail: { direction: this.direction },
+                bubbles: true
+              });
+              this.element.dispatchEvent(directionEvent);
+            }
             const event = new CustomEvent('move-to-cell', {
               detail: { row: row, col: col },
               bubbles: true
-            })
-            this.element.dispatchEvent(event)
-            foundNextWord = true
-            break
+            });
+            this.element.dispatchEvent(event);
+            foundNextWord = true;
+            break;
           }
         }
-        if (foundNextWord) break
+        if (foundNextWord) break;
       }
     }
-    
+
     // If still no word found, try switching direction
     if (!foundNextWord) {
-      const oppositeDirection = this.direction === 'across' ? 'down' : 'across'
+      const oppositeDirection = this.direction === 'across' ? 'down' : 'across';
       for (let row = 0; row < this.gridHeightValue; row++) {
         for (let col = 0; col < this.gridWidthValue; col++) {
           if (this.isWordStart(row, col, oppositeDirection)) {
-            this.direction = oppositeDirection
-            
+            this.direction = oppositeDirection;
+            this.updateDirectionIndicator();
             const directionEvent = new CustomEvent('direction-changed', {
               detail: { direction: this.direction },
               bubbles: true
-            })
-            this.element.dispatchEvent(directionEvent)
-            
+            });
+            this.element.dispatchEvent(directionEvent);
             const moveEvent = new CustomEvent('move-to-cell', {
               detail: { row: row, col: col },
               bubbles: true
-            })
-            this.element.dispatchEvent(moveEvent)
-            
-            foundNextWord = true
-            break
+            });
+            this.element.dispatchEvent(moveEvent);
+            foundNextWord = true;
+            break;
           }
         }
-        if (foundNextWord) break
+        if (foundNextWord) break;
       }
     }
   }
