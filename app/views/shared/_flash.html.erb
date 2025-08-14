@@ -1,0 +1,6 @@
+<% if message.present? %>
+<div class="flash <%= type %>">
+    <span><%= message %></span>
+    <button class="flash-close" onclick="this.closest('.flash').remove()">&times;</button>
+</div>
+<% end %>

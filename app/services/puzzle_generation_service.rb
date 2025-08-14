@@ -46,7 +46,7 @@ class PuzzleGenerationService
     # Logic to generate a puzzle based on the selected algorithm
     case @algo
     when "by valid word count"
-      generate_recursively_by_word_list_count(@word_info, @default_grid, Set.new, @logger)
+      generate_recursively_by_word_list_count(@word_info, @default_grid, [], @logger)
     when "by difficulty"
       generate_by_difficulty
     else
@@ -55,68 +55,87 @@ class PuzzleGenerationService
   end
 
   def generate_recursively_by_word_list_count(word_info, grid, used_words, logger = nil)
-    # Update Grid display in logger
+    # used_words is now an array of placed word_info hashes (with :answer)
     grid_str = grid.map { |row| row.map { |cell| cell.nil? ? "." : cell }.join(" ") }.join("\n")
     logger.update_message(grid_str) if logger
 
-    # Success condition: no more words to place
-    return { grid: grid } if word_info.empty?
+    return { grid: grid, used_words: used_words } if word_info.empty?
 
-    # The most constricted word's word count, per valid word list
     word_info.select { !_1.key?(:best_answer) }.each do |word|
-      best = get_best_word_and_score(word, word_info, grid, used_words, logger)
-      word[:best_answer] = best[:word]
-      word[:score] = best[:score]
-      word[:remaining_word_count] = get_valid_words(get_word_from_grid(word, grid), used_words).size
+      # best = get_best_word_and_score(word, word_info, grid, used_words.map { |w| w[:answer] }, logger)
+      # word[:best_answer] = best[:word]
+      # word[:score] = best[:score]
+      word[:remaining_word_count] = get_valid_words(get_word_from_grid(word, grid), used_words.map { |w| w[:answer] }).size
     end
 
-    # Sort words by score (most constricted first)
     sorted_words = word_info.sort_by { |w| w[:remaining_word_count] }
-
-    # Pick the most constricted word
     current_word = sorted_words.first
-    candidates = get_valid_words(get_word_from_grid(current_word, grid), used_words)
+    candidates = get_valid_words(get_word_from_grid(current_word, grid), used_words.map { |w| w[:answer] })
 
-    # Try each candidate for this word
-    candidates.sort.each_with_index do |candidate, idx|
-      # Shallow copy state (sufficient for arrays/hashes of primitives)
+    candidates.sort.each do |candidate|
       new_word_info = word_info.map(&:dup)
       new_grid = grid.map(&:dup)
       new_used_words = used_words.dup
 
-      # Place candidate
       target_word = new_word_info.find { |w| w[:number] == current_word[:number] && w[:direction] == current_word[:direction] }
+      target_word[:answer] = candidate
+      target_word[:placed] = true
 
-      # Fill grid
       target_word[:cells].each_with_index do |(row, col), idx|
         new_grid[row][col] = candidate[idx]
       end
-      new_used_words << candidate
+      new_used_words << target_word.dup
 
-      iw = intersecting_words(new_word_info, target_word)
-
-      # Remove this word from word_info
       new_word_info.delete(target_word)
 
       ret = generate_recursively_by_word_list_count(new_word_info, new_grid, new_used_words, logger)
       return ret unless ret == -1
-      # If failed, try next candidate
+      # If failed, backtrack to last intersecting word
+      get_backtrack_count(target_word, used_words)
     end
-    # If all candidates fail, backtrack
-    # p 'Backtracking...'
     -1
-    end
+  end
 
-  def get_valid_words(pattern, used_words = Set.new)
+  # Write a script to tell how many backtracks back to the last intersecting word
+  def get_backtrack_count(target_word, used_words)
+    used_words.reverse.each_with_index do |word, index|
+      return -1 * (index + 1) if is_intersecting?(word, target_word)
+    end
+    -1
+  end
+
+  # Helper: backtrack until we reach a word that intersects with the current word
+  def unselect_until_intersect(used_words, current_word, grid)
+    return [ used_words, grid ] if used_words.empty?
+    target_cells = current_word[:cells].to_set
+    while !used_words.empty?
+      last = used_words.last
+      last_cells = last[:cells].to_set
+      # Clear the grid cells for the word being popped
+      last[:cells].each do |row, col|
+        grid[row][col] = nil
+      end
+      if !(last_cells & target_cells).empty?
+        used_words.pop
+        break
+      end
+      used_words.pop
+    end
+    [ used_words, grid ]
+  end
+
+  def get_valid_words(pattern, used_words = [])
     @pattern_results_cache ||= {}
     cache_key = pattern
 
     unless @pattern_results_cache.key?(cache_key)
+      # @logger.update_message("New Pattern #{pattern}") if @logger
       regex = Regexp.new("^#{pattern.gsub('_', '.')}$")
       @pattern_results_cache[cache_key] = @words_list[pattern.length].select { |word| word.match(regex) }
+    else
+      # @logger.update_message("Cached Pattern #{pattern}") if @logger
     end
 
-    # Remove used words and return the list
     @pattern_results_cache[cache_key].reject { |word| used_words.include?(word) }
   end
 
@@ -259,8 +278,12 @@ class PuzzleGenerationService
   private def intersecting_words(word_info, target_word)
     target_cells = target_word[:cells].to_set
     word_info.select do |word|
-      word != target_word && !(word[:cells].to_set & target_cells).empty?
+      is_intersecting?(word, target_word)
     end
+  end
+
+  private def is_intersecting?(word1, word2)
+    word1[:cells].to_set & word2[:cells].to_set && word1 != word2
   end
 
   private   # Helper: does this cell start an across word?

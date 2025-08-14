@@ -113,7 +113,10 @@ class CrosswordGameController < ApplicationController
     description = params[:description] || "Generated puzzle"
     logger = InlinePercentLogger.new("Generating crossword grid")
 
-    puzzle = PuzzleGenerationService.new(
+    grid = JSON.parse(grid) if grid.is_a?(String)
+    numbering = JSON.parse(numbering) if numbering.is_a?(String)
+
+    solution = PuzzleGenerationService.new(
       grid: grid,
       numbering: numbering,
       title: title,
@@ -122,11 +125,48 @@ class CrosswordGameController < ApplicationController
       logger: logger
     ).generate
 
-    if puzzle && puzzle.persisted?
-      redirect_to play_crossword_path(id: puzzle.id)
+    if solution && solution[:grid]
+      puzzle = create_puzzle_from_grid(solution[:grid], numbering, title: title, difficulty: difficulty, description: description)
     else
-      render json: { success: false, error: "Puzzle generation failed." }, status: :unprocessable_entity
+      puzzle = nil
     end
+
+    if puzzle && puzzle.persisted?
+      respond_to do |format|
+        format.html { redirect_to play_crossword_path(id: puzzle.id) }
+        format.turbo_stream do
+          render turbo_stream: turbo_stream.replace(
+            "flash",
+            partial: "shared/flash",
+            locals: { type: :success, message: "Puzzle generated successfully!" }
+          )
+        end
+      end
+    else
+      respond_to do |format|
+        format.html { render json: { success: false, error: "Puzzle generation failed." }, status: :unprocessable_entity }
+        format.turbo_stream do
+          render turbo_stream: turbo_stream.replace(
+            "flash",
+            partial: "shared/flash",
+            locals: { type: :error, message: "Puzzle generation failed." }
+          )
+        end
+      end
+    end
+
+  rescue => e
+    Rails.logger.error "Puzzle generation error: #{e.message}"
+    respond_to do |format|
+        format.html { render json: { success: false, error: "Puzzle generation failed." }, status: :unprocessable_entity }
+        format.turbo_stream do
+          render turbo_stream: turbo_stream.replace(
+            "flash",
+            partial: "shared/flash",
+            locals: { type: :error, message: "Puzzle generation failed. #{e.message}" }
+          )
+        end
+      end
   end
 
   # KMQ TODO: start by cacheing the patterns -> word list

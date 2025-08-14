@@ -51,7 +51,8 @@ export default class extends Controller {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
+              'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content,
+              'Accept': 'text/vnd.turbo-stream.html'
             },
             body: JSON.stringify({ 
               grid: JSON.stringify(gridData), 
@@ -65,8 +66,13 @@ export default class extends Controller {
             })
             .then(response => response.text())
             .then(html => {
-            // Replace the page content with the response (or handle as needed)
-            document.body.innerHTML = html;
+            // Use Turbo.renderStreamMessage for Turbo Stream responses
+            if (window.Turbo && typeof window.Turbo.renderStreamMessage === "function") {
+              window.Turbo.renderStreamMessage(html);
+            } else {
+              // Fallback for non-Turbo environments
+              document.body.innerHTML = html;
+            }
           });
         });
       }

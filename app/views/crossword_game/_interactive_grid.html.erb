@@ -55,6 +55,10 @@
     <% end %>
   </div>
 
+   <turbo-frame id="flash">
+    <!-- Flash messages will be injected here -->
+  </turbo-frame> 
+
   <div class="game-controls">
     <div class="mode-indicators">
       <span class="current-mode"><%= @mode == 'create' ? 'CREATE MODE' : 'PLAY MODE' %></span>

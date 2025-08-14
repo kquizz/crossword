@@ -1,0 +1,32 @@
+.flash {
+  padding: 1em;
+  margin: 1em 0;
+  border-radius: 4px;
+  position: relative;
+  font-weight: bold;
+}
+.flash.error {
+  background: #ffe5e5;
+  color: #b30000;
+  border: 1px solid #b30000;
+}
+.flash.success {
+  background: #e5ffe5;
+  color: #006600;
+  border: 1px solid #006600;
+}
+.flash.info {
+  background: #fffbe5;
+  color: #b38f00;
+  border: 1px solid #b38f00;
+}
+.flash-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.2em;
+  position: absolute;
+  top: 0.5em;
+  right: 0.7em;
+  cursor: pointer;
+}
