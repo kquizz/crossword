@@ -54,7 +54,7 @@ group :development, :test do
   gem "overcommit", require: false
 
   # Web scraping gems
-  gem "nokogiri", "~> 1.15"
+  gem "nokogiri", "~> 1.18"
   gem "httparty", "~> 0.21"
 end
 
